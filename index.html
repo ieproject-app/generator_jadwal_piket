@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Penjadwalan Regu Jaga</title>
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
   <style>
     .sticky-header { position: sticky; top: 0; background: #f8fafc; z-index: 2;}
@@ -317,7 +319,8 @@ function renderScheduleTable(jadwal, allGroups) {
     }
     html += `<div class="panel-month">
       <div class="sticky-month">${monthTitle}</div>
-      <div class="overflow-x-auto"><table class="w-full text-xs"><tbody><tr>`;
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs"><tbody><tr>`;
     // Render setiap kolom dengan header ulang!
     for (let cc=0; cc<cols.length; cc++) {
       html += `<td colspan="3" style="padding:0;background:#f8fafc">
@@ -352,6 +355,7 @@ function renderScheduleTable(jadwal, allGroups) {
 
 /* ==== EXPORT XLSX/CSV ==== */
 function getScheduleDataForExport() {
+  // Ambil jadwal hasil filter
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
   const liburOnly = document.getElementById('filterLibur').checked;
