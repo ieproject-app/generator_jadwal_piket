@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Penjadwalan Regu Jaga</title>
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
   <style>
     .sticky-header { position: sticky; top: 0; background: #f8fafc; z-index: 2;}
@@ -38,14 +36,12 @@
   <div id="main-content" class="max-w-6xl mx-auto px-2">
     <form id="configForm" class="bg-white rounded-md shadow p-4 mb-6">
       <div class="grid md:grid-cols-3 gap-4">
-        <!-- Tanggal Mulai/Selesai -->
         <div>
           <label class="block text-sm mb-1 font-medium">Tanggal Mulai</label>
           <input type="date" id="startDate" required class="border rounded w-full p-1 text-sm"/>
           <label class="block mt-3 text-sm mb-1 font-medium">Tanggal Selesai</label>
           <input type="date" id="endDate" required class="border rounded w-full p-1 text-sm"/>
         </div>
-        <!-- Daftar Regu -->
         <div>
           <label class="block text-sm mb-1 font-medium">Daftar Regu (satu per baris)</label>
           <textarea id="groupList" rows="7" required class="border rounded w-full p-1 text-sm resize-none"></textarea>
@@ -55,7 +51,6 @@
             <span id="importStat" class="text-xs text-green-600"></span>
           </div>
         </div>
-        <!-- Hari Libur & Opsi Urutan -->
         <div>
           <label class="block text-sm mb-1 font-medium">Hari Libur (multi-date)</label>
           <div id="holidayPicker" class="flex flex-wrap gap-1 mb-2"></div>
@@ -76,7 +71,6 @@
       </div>
     </form>
 
-    <!-- Filter & Export Buttons -->
     <div id="filterBar" class="filter-bar mb-3 flex flex-wrap items-center no-print" style="display:none">
       <label>Bulan:
         <select id="filterBulan" class="border px-1 rounded"></select>
@@ -89,7 +83,6 @@
       <button id="downloadCSV" class="px-3 py-1 text-xs bg-sky-600 text-white rounded hover:bg-sky-700">Download CSV</button>
     </div>
 
-    <!-- Jadwal Output -->
     <div id="scheduleOut" class="overflow-x-auto"></div>
   </div>
 
@@ -120,7 +113,6 @@ function groupByMonth(jadwal) {
   return map;
 }
 function padRows(arr, n) {
-  // Pad array to be multiple of n with empty
   let mod = arr.length % n;
   if (mod === 0) return arr.slice();
   let padded = arr.slice();
@@ -183,7 +175,6 @@ document.getElementById('resetBtn').onclick = function() {
 document.getElementById('configForm').onsubmit = function(e) {
   e.preventDefault();
 
-  // Ambil input
   const startDate = document.getElementById('startDate').value;
   const endDate = document.getElementById('endDate').value;
   let groups = document.getElementById('groupList').value.split('\n').map(g=>g.trim()).filter(Boolean);
@@ -196,7 +187,6 @@ document.getElementById('configForm').onsubmit = function(e) {
     alert('Tanggal mulai/selesai tidak valid');
     return;
   }
-  // Generate jadwal
   const jadwal = generateSchedule(startDate, endDate, holidays, groups, orderType);
   lastJadwal = jadwal;
   lastGroups = groups;
@@ -216,7 +206,6 @@ function shuffleArray(arr) {
   return a;
 }
 function generateSchedule(start, end, holidaysList, groupList, orderType) {
-  // Buat daftar tanggal valid (exclude libur)
   let days = [];
   let cur = new Date(start);
   const endDate = new Date(end);
@@ -226,11 +215,9 @@ function generateSchedule(start, end, holidaysList, groupList, orderType) {
     days.push({date: iso, isHoliday: holidaysList.includes(iso)});
     cur.setDate(cur.getDate()+1);
   }
-  // Penjadwalan
   let schedule = [];
   let pool = groupList.slice();
   let idx = 0, last1=null, last2=null;
-
   for (let d of days) {
     if (d.isHoliday) {
       schedule.push({date: d.date, group1: 'Libur', group2: 'Libur', isHoliday:true});
@@ -275,16 +262,13 @@ function generateSchedule(start, end, holidaysList, groupList, orderType) {
 
 /* ==== FILTER BAR ==== */
 function renderFilterBar(jadwal, groups) {
-  // Bulan Filter
   const bulanSel = document.getElementById('filterBulan');
   const months = Array.from(new Set(jadwal.map(j=>j.date.slice(0,7))));
   bulanSel.innerHTML = '<option value="">Semua Bulan</option>' +
     months.map(ym=>`<option value="${ym}">${formatBulanTahun(ym+'-01')}</option>`).join('');
-  // Grup Filter
   const grupSel = document.getElementById('filterGrup');
   grupSel.innerHTML = '<option value="">Semua Grup</option>' +
     groups.map(g=>`<option value="${g}">${g}</option>`).join('');
-  // Reset filters
   bulanSel.value = '';
   grupSel.value = '';
   document.getElementById('filterLibur').checked = false;
@@ -297,7 +281,6 @@ document.getElementById('filterLibur').onchange = function() {
 
 /* ==== Render Table Panel Grid ==== */
 function renderScheduleTable(jadwal, allGroups) {
-  // Filter
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
   const liburOnly = document.getElementById('filterLibur').checked;
@@ -308,9 +291,20 @@ function renderScheduleTable(jadwal, allGroups) {
     return byMonth && byGrup && byLibur;
   });
 
-  const byMonth = groupByMonth(filtered);
+  let byMonth = groupByMonth(filtered);
+  // Tampilkan hanya dua bulan (jika lebih dari dua bulan)
+  let monthKeys = Object.keys(byMonth);
+  if (monthKeys.length > 2) {
+    // default: dua bulan pertama
+    let chosen = monthKeys.slice(0,2);
+    let limited = {};
+    chosen.forEach(k=>limited[k]=byMonth[k]);
+    byMonth = limited;
+    monthKeys = chosen;
+  }
+
   let html = '<div class="panel-grid">';
-  for (let ym in byMonth) {
+  for (let ym of monthKeys) {
     const rows = byMonth[ym];
     const monthTitle = formatBulanTahun(rows[0].date);
     // Split jadi kolom, max 15 per kolom, pad biar simetris
@@ -323,33 +317,34 @@ function renderScheduleTable(jadwal, allGroups) {
     }
     html += `<div class="panel-month">
       <div class="sticky-month">${monthTitle}</div>
-      <div class="overflow-x-auto"><table class="w-full text-xs">
-        <thead class="sticky-header">
-          <tr>
-            <th rowspan="2" class="sticky-header">Tanggal</th>
-            <th colspan="2" class="sticky-header">Kelompok Jaga</th>
-          </tr>
-          <tr>
-            <th class="sticky-header">Grup 1</th>
-            <th class="sticky-header">Grup 2</th>
-          </tr>
-        </thead>
-        <tbody>
-        ${Array.from({length:COL_HEIGHT}).map((_,barisIdx)=>{
-          return '<tr>' +
-            cols.map(col=>{
-              if (!col[barisIdx]) {
-                return `<td class="empty-cell"></td><td class="empty-cell"></td><td class="empty-cell"></td>`;
-              }
-              const row = col[barisIdx];
+      <div class="overflow-x-auto"><table class="w-full text-xs"><tbody><tr>`;
+    // Render setiap kolom dengan header ulang!
+    for (let cc=0; cc<cols.length; cc++) {
+      html += `<td colspan="3" style="padding:0;background:#f8fafc">
+        <table class="w-full text-xs" style="margin:0">
+          <thead>
+            <tr>
+              <th rowspan="2" class="sticky-header">Tanggal</th>
+              <th colspan="2" class="sticky-header">Kelompok Jaga</th>
+            </tr>
+            <tr>
+              <th class="sticky-header">Grup 1</th>
+              <th class="sticky-header">Grup 2</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cols[cc].map(row=>{
+              if (!row) return `<tr><td class="empty-cell"></td><td class="empty-cell"></td><td class="empty-cell"></td></tr>`;
               if (row.isHoliday)
-                return `<td class="holiday-row">${formatTanggal(row.date)}</td><td class="holiday-row">${row.group1}</td><td class="holiday-row">${row.group2}</td>`;
+                return `<tr class="holiday-row"><td>${formatTanggal(row.date)}</td><td>${row.group1}</td><td>${row.group2}</td></tr>`;
               else
-                return `<td>${formatTanggal(row.date)}</td><td>${row.group1}</td><td>${row.group2}</td>`;
-            }).join('')
-            + '</tr>';
-        }).join('')}
-        </tbody></table></div></div>`;
+                return `<tr><td>${formatTanggal(row.date)}</td><td>${row.group1}</td><td>${row.group2}</td></tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </td>`;
+    }
+    html += `</tr></tbody></table></div></div>`;
   }
   html += '</div>';
   document.getElementById('scheduleOut').innerHTML = html;
@@ -357,7 +352,6 @@ function renderScheduleTable(jadwal, allGroups) {
 
 /* ==== EXPORT XLSX/CSV ==== */
 function getScheduleDataForExport() {
-  // Ambil jadwal hasil filter
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
   const liburOnly = document.getElementById('filterLibur').checked;
