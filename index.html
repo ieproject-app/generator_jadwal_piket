@@ -1,565 +1,428 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Generator Jadwal Jaga</title>
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Flatpickr (untuk date picker canggih) -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/id.js"></script> <!-- Lokalisasi Bahasa Indonesia -->
-
-    <!-- html2canvas (untuk ekspor ke gambar) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-    <!-- Font Google: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        /* Custom styles untuk meningkatkan UI/UX */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827; /* bg-gray-900 */
-            color: #d1d5db; /* text-gray-300 */
-        }
-
-        /* Styling untuk flatpickr agar sesuai tema gelap */
-        .flatpickr-calendar.dark {
-            background: #1f2937; /* bg-gray-800 */
-            border-radius: 0.5rem;
-            border-width: 1px;
-            border-color: #4b5563; /* border-gray-600 */
-        }
-        .flatpickr-calendar.dark .flatpickr-months .flatpickr-month,
-        .flatpickr-calendar.dark .flatpickr-weekday,
-        .flatpickr-calendar.dark .flatpickr-day {
-            color: #d1d5db;
-        }
-        .flatpickr-calendar.dark .flatpickr-day:hover {
-            background: #374151; /* bg-gray-700 */
-        }
-        .flatpickr-calendar.dark .flatpickr-day.selected, 
-        .flatpickr-calendar.dark .flatpickr-day.startRange, 
-        .flatpickr-calendar.dark .flatpickr-day.endRange {
-            background: #3b82f6; /* bg-blue-600 */
-            border-color: #3b82f6;
-        }
-        .flatpickr-calendar.dark .flatpickr-day.flatpickr-disabled {
-            color: #4b5563; /* text-gray-600 */
-        }
-        .flatpickr-calendar.dark .flatpickr-current-month .numInputWrapper {
-            color: #d1d5db;
-        }
-        .flatpickr-calendar.dark span.flatpickr-weekday {
-            color: #9ca3af; /* text-gray-400 */
-        }
-        .flatpickr-calendar.dark .arrowUp, .flatpickr-calendar.dark .arrowDown {
-            border-bottom-color: #d1d5db;
-        }
-
-        /* Sticky header untuk tabel jadwal */
-        .sticky-header {
-            position: -webkit-sticky;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        /* Styling untuk print */
-        @media print {
-            body {
-                background-color: #ffffff;
-                color: #000000;
-            }
-            #config-panel, #export-panel, #app-footer {
-                display: none !important;
-            }
-            #output-area {
-                width: 100%;
-                margin: 0;
-                padding: 0;
-            }
-            #schedule-container {
-                display: block !important;
-            }
-            .month-panel {
-                break-inside: avoid;
-                page-break-inside: avoid;
-                box-shadow: none !important;
-                border: 1px solid #ccc;
-            }
-            table th, table td {
-                color: #000 !important;
-            }
-            table thead {
-                background-color: #f2f2f2 !important;
-            }
-            .holiday-row {
-                background-color: #e5e7eb !important; /* bg-gray-200 */
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Penjadwalan Kelompok Jaga</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+  <style>
+    /* Sticky header styling */
+    .sticky-top { position: sticky; top: 0; z-index: 10; background: #fff; }
+    .sticky-month { position: sticky; top: 0; z-index: 20; background: #f1f5f9; }
+    /* Compact for screenshot */
+    table,th,td { font-size: 0.95rem; }
+    th, td { padding: 0.25rem 0.5rem; }
+    /* Table for print */
+    @media print {
+      .no-print { display: none !important; }
+      html, body { background: #fff !important; }
+    }
+  </style>
 </head>
-<body class="min-h-screen">
-
-    <div class="container mx-auto p-4 md:p-6 lg:p-8">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-white">Generator Jadwal Jaga</h1>
-            <p class="text-gray-400 mt-2">Buat, kustomisasi, dan ekspor jadwal regu dengan mudah.</p>
-        </header>
-
-        <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Panel Konfigurasi -->
-            <aside id="config-panel" class="w-full lg:w-1/3 lg:max-w-sm flex-shrink-0">
-                <div class="bg-gray-800 p-6 rounded-lg shadow-lg space-y-6">
-                    <h2 class="text-xl font-semibold text-white border-b border-gray-700 pb-3">Konfigurasi Jadwal</h2>
-                    
-                    <!-- Rentang Tanggal -->
-                    <div>
-                        <label for="startDate" class="block text-sm font-medium text-gray-300 mb-1">Tanggal Mulai</label>
-                        <input type="text" id="startDate" placeholder="Pilih tanggal..." class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label for="endDate" class="block text-sm font-medium text-gray-300 mb-1">Tanggal Selesai</label>
-                        <input type="text" id="endDate" placeholder="Pilih tanggal..." class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    
-                    <!-- Daftar Regu -->
-                    <div>
-                        <label for="teams" class="block text-sm font-medium text-gray-300 mb-1">Daftar Regu (satu per baris)</label>
-                        <textarea id="teams" rows="6" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Regu A&#10;Regu B&#10;Regu C&#10;..."></textarea>
-                        <input type="file" id="file-import" accept=".txt" class="hidden">
-                        <button id="import-btn" class="mt-2 w-full text-sm bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-4 rounded-md transition duration-150">
-                            Import dari .txt
-                        </button>
-                    </div>
-
-                    <!-- Hari Libur -->
-                    <div>
-                        <label for="holidays" class="block text-sm font-medium text-gray-300 mb-1">Pilih Hari Libur</label>
-                        <input type="text" id="holidays" placeholder="Pilih satu atau beberapa tanggal..." class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-
-                    <!-- Opsi -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="order-option" class="block text-sm font-medium text-gray-300 mb-1">Urutan Regu</label>
-                            <select id="order-option" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="regular">Loop Reguler</option>
-                                <option value="random">Acak</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="group-offset" class="block text-sm font-medium text-gray-300 mb-1">Offset Grup 2</label>
-                            <input type="number" id="group-offset" value="1" min="0" class="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                    </div>
-                    
-                    <!-- Tombol Aksi -->
-                    <div class="pt-4 border-t border-gray-700">
-                        <button id="generate-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-md transition duration-150 text-lg">
-                            Buat Jadwal
-                        </button>
-                        <button id="reset-btn" class="w-full mt-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md transition duration-150 hidden">
-                            Reset
-                        </button>
-                    </div>
-
-                    <div id="error-message" class="text-red-400 text-sm text-center"></div>
-                </div>
-            </aside>
-
-            <!-- Area Output Jadwal -->
-            <main id="output-area" class="w-full lg:w-2/3 flex-grow">
-                 <div id="export-panel" class="hidden bg-gray-800 p-4 rounded-lg shadow-lg mb-6 flex flex-wrap items-center justify-center gap-4">
-                    <button id="export-all-png-btn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition duration-150">Ekspor Semua (PNG)</button>
-                    <div class="flex items-center gap-2">
-                        <select id="export-month-select" class="bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                            <!-- Options will be populated by JS -->
-                        </select>
-                        <button id="export-month-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-md transition duration-150">Ekspor Bulan Ini</button>
-                    </div>
-                    <button id="print-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md transition duration-150">Cetak</button>
-                </div>
-
-                <div id="schedule-placeholder" class="flex flex-col items-center justify-center h-full min-h-[400px] bg-gray-800 rounded-lg border-2 border-dashed border-gray-600 text-gray-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p class="text-xl font-medium">Jadwal akan ditampilkan di sini</p>
-                    <p>Isi konfigurasi di samping dan klik "Buat Jadwal".</p>
-                </div>
-
-                <div id="schedule-output" class="relative">
-                    <!-- Jadwal akan dirender di sini oleh JavaScript -->
-                </div>
-            </main>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center py-4">
+  <!-- Form Panel -->
+  <div id="config-panel" class="w-full max-w-3xl bg-white rounded shadow p-4 mb-4 no-print">
+    <h1 class="text-xl font-bold mb-2">Penjadwalan Kelompok Jaga</h1>
+    <form id="schedule-form" autocomplete="off" class="space-y-3">
+      <div class="flex flex-wrap gap-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">Tanggal Mulai</label>
+          <input type="date" id="tanggal-mulai" required class="border rounded px-2 py-1 w-full">
         </div>
-        
-        <footer id="app-footer" class="text-center mt-12 text-gray-500 text-sm">
-            <p>Dibuat dengan ❤️. Didukung oleh Tailwind CSS, Flatpickr, dan html2canvas.</p>
-        </footer>
+        <div>
+          <label class="block text-sm font-semibold mb-1">Tanggal Selesai</label>
+          <input type="date" id="tanggal-selesai" required class="border rounded px-2 py-1 w-full">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold mb-1">Daftar Regu (satu per baris)</label>
+        <textarea id="daftar-regu" rows="3" required class="border rounded px-2 py-1 w-full resize-none"></textarea>
+        <div class="flex items-center gap-2 mt-1">
+          <input type="file" id="import-txt" accept=".txt" class="hidden">
+          <button type="button" id="btn-import" class="text-xs px-2 py-1 border rounded bg-gray-100 hover:bg-gray-200">Import TXT</button>
+          <span id="import-label" class="text-xs text-gray-500"></span>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold mb-1">Hari Libur (multi-date)</label>
+        <input type="text" id="libur-picker" readonly placeholder="Pilih tanggal" class="border rounded px-2 py-1 w-full bg-white cursor-pointer" style="background:#fff!important;">
+        <div id="libur-list" class="flex flex-wrap gap-2 mt-1"></div>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold mb-1">Opsi Urutan</label>
+        <div class="flex items-center gap-4">
+          <label class="flex items-center gap-1">
+            <input type="radio" name="urutan" value="acak" checked>
+            <span>Acak (shuffle per siklus, tidak berurutan sama)</span>
+          </label>
+          <label class="flex items-center gap-1">
+            <input type="radio" name="urutan" value="manual">
+            <span>Manual (urutan sesuai input)</span>
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700">Generate</button>
+    </form>
+  </div>
+
+  <!-- Output Panel -->
+  <div id="output-panel" class="w-full max-w-[96vw] hidden flex-col items-center">
+    <div class="flex flex-wrap justify-between mb-2 gap-2 no-print">
+      <div class="flex gap-2">
+        <button id="btn-xlsx" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Download XLSX</button>
+        <button id="btn-csv" class="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm">Download CSV</button>
+        <button id="btn-print" class="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-900 text-sm">Print</button>
+      </div>
+      <button id="btn-reset" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">Reset</button>
     </div>
+    <div id="jadwal-tabel" class="w-full flex flex-wrap gap-4 justify-center"></div>
+  </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // --- Inisialisasi Komponen ---
+  <!-- Multi-date picker modal -->
+  <div id="modal-libur" class="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded p-4 min-w-[320px]">
+      <h2 class="text-lg font-bold mb-2">Pilih Hari Libur</h2>
+      <input type="date" id="picker-add-libur" class="border rounded px-2 py-1 w-full mb-2">
+      <div id="picker-libur-list" class="flex flex-wrap gap-2 mb-2"></div>
+      <div class="flex gap-2 justify-end">
+        <button id="picker-btn-ok" class="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">OK</button>
+        <button id="picker-btn-cancel" class="px-3 py-1 bg-gray-400 text-white rounded hover:bg-gray-600 text-sm">Batal</button>
+      </div>
+    </div>
+  </div>
 
-            // Konfigurasi Flatpickr dengan lokalisasi Indonesia
-            flatpickr.localize(flatpickr.l10ns.id);
+  <script>
+    // === Multi-date picker logic ===
+    let liburTanggal = [];
+    const liburInput = document.getElementById('libur-picker');
+    const liburList = document.getElementById('libur-list');
+    const modalLibur = document.getElementById('modal-libur');
+    const pickerInput = document.getElementById('picker-add-libur');
+    const pickerList = document.getElementById('picker-libur-list');
+    const pickerBtnOK = document.getElementById('picker-btn-ok');
+    const pickerBtnCancel = document.getElementById('picker-btn-cancel');
 
-            const startDatePicker = flatpickr("#startDate", {
-                altInput: true,
-                altFormat: "j F Y",
-                dateFormat: "Y-m-d",
-                theme: "dark",
-            });
+    function formatTanggal(dateStr, opts = {}) {
+      // dateStr = '2025-06-25'
+      const bulanID = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+      const hariID = ["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"];
+      const d = new Date(dateStr + "T00:00:00");
+      if (opts.bulan) {
+        return `${bulanID[d.getMonth()]} ${d.getFullYear()}`;
+      }
+      return `${hariID[d.getDay()]}, ${d.getDate()} ${bulanID[d.getMonth()]} ${d.getFullYear()}`;
+    }
 
-            const endDatePicker = flatpickr("#endDate", {
-                altInput: true,
-                altFormat: "j F Y",
-                dateFormat: "Y-m-d",
-                theme: "dark",
-            });
+    function renderLiburList() {
+      liburList.innerHTML = "";
+      for (let d of liburTanggal.sort()) {
+        const chip = document.createElement("span");
+        chip.className = "px-2 py-0.5 bg-gray-200 rounded text-xs flex items-center gap-1";
+        chip.innerText = formatTanggal(d);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerHTML = "&times;";
+        btn.className = "ml-1 text-gray-500 hover:text-red-500";
+        btn.onclick = () => {
+          liburTanggal = liburTanggal.filter(x => x !== d);
+          renderLiburList();
+        };
+        chip.appendChild(btn);
+        liburList.appendChild(chip);
+      }
+      liburInput.value = liburTanggal.length ? `${liburTanggal.length} tanggal dipilih` : "";
+    }
 
-            const holidayPicker = flatpickr("#holidays", {
-                mode: "multiple",
-                dateFormat: "Y-m-d",
-                altInput: true,
-                altFormat: "j F Y",
-                theme: "dark",
-                conjunction: ", ",
-            });
+    liburInput.addEventListener("click", () => {
+      // Show modal
+      pickerInput.value = "";
+      pickerList.innerHTML = "";
+      for (let d of liburTanggal.sort()) {
+        const chip = document.createElement("span");
+        chip.className = "px-2 py-0.5 bg-gray-200 rounded text-xs flex items-center gap-1";
+        chip.innerText = formatTanggal(d);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerHTML = "&times;";
+        btn.className = "ml-1 text-gray-500 hover:text-red-500";
+        btn.onclick = () => {
+          liburTanggal = liburTanggal.filter(x => x !== d);
+          pickerList.removeChild(chip);
+        };
+        chip.appendChild(btn);
+        pickerList.appendChild(chip);
+      }
+      modalLibur.classList.remove("hidden");
+    });
+    pickerBtnOK.onclick = () => {
+      renderLiburList();
+      modalLibur.classList.add("hidden");
+    };
+    pickerBtnCancel.onclick = () => {
+      modalLibur.classList.add("hidden");
+    };
+    pickerInput.addEventListener("change", () => {
+      const val = pickerInput.value;
+      if (val && !liburTanggal.includes(val)) {
+        liburTanggal.push(val);
+        const chip = document.createElement("span");
+        chip.className = "px-2 py-0.5 bg-gray-200 rounded text-xs flex items-center gap-1";
+        chip.innerText = formatTanggal(val);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerHTML = "&times;";
+        btn.className = "ml-1 text-gray-500 hover:text-red-500";
+        btn.onclick = () => {
+          liburTanggal = liburTanggal.filter(x => x !== val);
+          pickerList.removeChild(chip);
+        };
+        chip.appendChild(btn);
+        pickerList.appendChild(chip);
+      }
+      pickerInput.value = "";
+    });
 
-            // --- Seleksi Elemen DOM ---
-            const elements = {
-                startDate: document.getElementById('startDate'),
-                endDate: document.getElementById('endDate'),
-                teams: document.getElementById('teams'),
-                holidays: document.getElementById('holidays'),
-                orderOption: document.getElementById('order-option'),
-                groupOffset: document.getElementById('group-offset'),
-                generateBtn: document.getElementById('generate-btn'),
-                resetBtn: document.getElementById('reset-btn'),
-                importBtn: document.getElementById('import-btn'),
-                fileImport: document.getElementById('file-import'),
-                errorMessage: document.getElementById('error-message'),
-                schedulePlaceholder: document.getElementById('schedule-placeholder'),
-                scheduleOutput: document.getElementById('schedule-output'),
-                exportPanel: document.getElementById('export-panel'),
-                exportAllPngBtn: document.getElementById('export-all-png-btn'),
-                exportMonthSelect: document.getElementById('export-month-select'),
-                exportMonthBtn: document.getElementById('export-month-btn'),
-                printBtn: document.getElementById('print-btn'),
-            };
+    // === Import TXT logic ===
+    document.getElementById('btn-import').onclick = () => {
+      document.getElementById('import-txt').click();
+    };
+    document.getElementById('import-txt').addEventListener('change', function() {
+      const file = this.files[0];
+      if (!file) return;
+      document.getElementById('import-label').innerText = file.name;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('daftar-regu').value = e.target.result.replace(/\r/g, '').trim();
+      };
+      reader.readAsText(file);
+    });
 
-            // --- Event Listeners ---
-            elements.generateBtn.addEventListener('click', generateSchedule);
-            elements.resetBtn.addEventListener('click', resetForm);
-            elements.importBtn.addEventListener('click', () => elements.fileImport.click());
-            elements.fileImport.addEventListener('change', handleFileImport);
-            elements.exportAllPngBtn.addEventListener('click', () => exportSchedule('all'));
-            elements.exportMonthBtn.addEventListener('click', () => exportSchedule('month'));
-            elements.printBtn.addEventListener('click', () => window.print());
+    // === Main Form Logic ===
+    document.getElementById('schedule-form').onsubmit = function(e) {
+      e.preventDefault();
+      // Collect input
+      const tglMulai = document.getElementById('tanggal-mulai').value;
+      const tglSelesai = document.getElementById('tanggal-selesai').value;
+      let regu = document.getElementById('daftar-regu').value.split('\n').map(x => x.trim()).filter(x => x);
+      const urutan = document.querySelector('input[name=urutan]:checked').value;
+      if (regu.length < 2) { alert("Minimal 2 regu."); return; }
+      if (!tglMulai || !tglSelesai) { alert("Isi tanggal mulai & selesai."); return; }
+      if (new Date(tglSelesai)<new Date(tglMulai)) { alert("Tanggal selesai harus >= mulai."); return;}
+      showOutputPanel();
+      generateSchedule({
+        tglMulai: tglMulai,
+        tglSelesai: tglSelesai,
+        regu: regu,
+        urutan: urutan,
+        liburTanggal: [...liburTanggal]
+      });
+    };
 
-            // --- Logika Utama ---
+    document.getElementById('btn-reset').onclick = function() {
+      document.getElementById('output-panel').classList.add('hidden');
+      document.getElementById('config-panel').classList.remove('hidden');
+      document.getElementById('jadwal-tabel').innerHTML = "";
+    };
 
-            function validateInputs() {
-                elements.errorMessage.textContent = '';
-                if (!elements.startDate.value || !elements.endDate.value) {
-                    elements.errorMessage.textContent = 'Tanggal mulai dan selesai harus diisi.';
-                    return false;
-                }
-                if (new Date(elements.startDate.value) > new Date(elements.endDate.value)) {
-                    elements.errorMessage.textContent = 'Tanggal mulai tidak boleh setelah tanggal selesai.';
-                    return false;
-                }
-                if (elements.teams.value.trim() === '') {
-                    elements.errorMessage.textContent = 'Daftar regu tidak boleh kosong.';
-                    return false;
-                }
-                if (parseInt(elements.groupOffset.value) < 0) {
-                    elements.errorMessage.textContent = 'Offset grup tidak boleh negatif.';
-                    return false;
-                }
-                return true;
+    function showOutputPanel() {
+      document.getElementById('output-panel').classList.remove('hidden');
+      document.getElementById('config-panel').classList.add('hidden');
+      window.scrollTo(0,0);
+    }
+
+    // === Penjadwalan ===
+    function generateSchedule({tglMulai, tglSelesai, regu, urutan, liburTanggal}) {
+      // 1. Generate array tanggal
+      let tglList = [];
+      let cur = new Date(tglMulai);
+      let end = new Date(tglSelesai);
+      while (cur <= end) {
+        const ymd = cur.toISOString().slice(0,10);
+        tglList.push(ymd);
+        cur.setDate(cur.getDate() + 1);
+      }
+      // 2. Jadwalkan
+      let jadwal = [];
+      let liburSet = new Set(liburTanggal);
+      let pool = regu.slice();
+      let idx = 0;
+      let prev = [];
+      let cycleCount = 0;
+      let shuffle = (arr) => {
+        // Fisher-Yates
+        let a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+          let j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+      let poolHistory = [];
+      for (let hari of tglList) {
+        if (liburSet.has(hari)) {
+          jadwal.push({tanggal: hari, grup1: "Libur", grup2: "Libur", isLibur: true});
+          prev = [];
+          continue;
+        }
+        let g1, g2;
+        if (urutan === "acak") {
+          // Shuffle pool if habis siklus
+          if (idx >= pool.length) {
+            pool = shuffle(regu);
+            idx = 0;
+            cycleCount++;
+          }
+          // Pilih dua grup, tidak sama dengan kemarin
+          let available = pool.slice(idx).concat(pool.slice(0,idx));
+          let tryCount = 0;
+          do {
+            if (idx + 2 > pool.length) {
+              // At end, wrap
+              pool = shuffle(regu);
+              idx = 0;
+              available = pool.slice(idx);
             }
+            g1 = pool[idx % pool.length];
+            g2 = pool[(idx + 1) % pool.length];
+            idx += 2;
+            tryCount++;
+            // Hindari duplikat hari sebelumnya
+          } while ((prev.includes(g1) || g1 === g2) && tryCount < 10*regu.length);
 
-            function generateSchedule() {
-                if (!validateInputs()) return;
+          jadwal.push({tanggal: hari, grup1: g1, grup2: g2, isLibur: false});
+          prev = [g1,g2];
+        } else {
+          // Manual urutan, no acak
+          g1 = regu[idx % regu.length];
+          g2 = regu[(idx+1) % regu.length];
+          if (g1 === prev[0]) idx++;
+          jadwal.push({tanggal: hari, grup1: g1, grup2: g2, isLibur: false});
+          prev = [g1,g2];
+          idx += 2;
+        }
+      }
+      renderJadwalTable(jadwal);
+      // For download
+      window._jadwalExport = jadwal;
+    }
 
-                // 1. Ambil dan proses input
-                const startDate = new Date(elements.startDate.value + 'T00:00:00');
-                const endDate = new Date(elements.endDate.value + 'T00:00:00');
-                let teams = elements.teams.value.trim().split('\n').filter(Boolean);
-                const holidayStrings = new Set(holidayPicker.selectedDates.map(d => d.toISOString().split('T')[0]));
-                const order = elements.orderOption.value;
-                const offset = parseInt(elements.groupOffset.value) || 0;
-
-                // Urutan acak jika dipilih
-                if (order === 'random') {
-                    teams = shuffleArray(teams);
-                }
-
-                // 2. Buat struktur data jadwal
-                const scheduleByMonth = {};
-                let currentDate = new Date(startDate);
-                let group1Index = 0;
-                let group2Index = offset % teams.length;
-
-                while (currentDate <= endDate) {
-                    const monthYearKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
-                    const dateString = currentDate.toISOString().split('T')[0];
-
-                    if (!scheduleByMonth[monthYearKey]) {
-                        scheduleByMonth[monthYearKey] = {
-                            date: new Date(currentDate),
-                            days: []
-                        };
-                    }
-
-                    const isHoliday = holidayStrings.has(dateString);
-                    let dayData;
-
-                    if (isHoliday) {
-                        dayData = {
-                            date: new Date(currentDate),
-                            group1: 'Libur',
-                            group2: 'Libur',
-                            isHoliday: true,
-                        };
-                    } else {
-                        dayData = {
-                            date: new Date(currentDate),
-                            group1: teams[group1Index % teams.length],
-                            group2: teams[group2Index % teams.length],
-                            isHoliday: false,
-                        };
-                        group1Index++;
-                        group2Index++;
-                    }
-
-                    scheduleByMonth[monthYearKey].days.push(dayData);
-                    currentDate.setDate(currentDate.getDate() + 1);
-                }
-
-                // 3. Render jadwal ke HTML
-                renderSchedule(scheduleByMonth);
+    // === Rendering Tabel Jadwal ===
+    function renderJadwalTable(jadwal) {
+      // Group by bulan
+      let byBulan = {};
+      for (let row of jadwal) {
+        let blnKey = row.tanggal.slice(0,7); // '2025-06'
+        if (!byBulan[blnKey]) byBulan[blnKey] = [];
+        byBulan[blnKey].push(row);
+      }
+      // Render each month as a panel
+      let container = document.getElementById('jadwal-tabel');
+      container.innerHTML = "";
+      for (let blnKey of Object.keys(byBulan)) {
+        let rows = byBulan[blnKey];
+        // Split to columns of 15 rows
+        let columns = [];
+        for (let i=0; i<rows.length; i+=15) {
+          columns.push(rows.slice(i, i+15));
+        }
+        // Panel
+        let panel = document.createElement('div');
+        panel.className = "bg-white rounded shadow p-2 mb-4 flex flex-col gap-2 min-w-[330px] max-w-[370px] flex-1";
+        // Sticky month header
+        let monthHeader = document.createElement('div');
+        monthHeader.className = "sticky-month text-center text-base font-bold mb-1 py-1 border-b border-slate-200 bg-slate-100";
+        monthHeader.innerText = formatTanggal(blnKey + "-01", {bulan:true});
+        panel.appendChild(monthHeader);
+        // Columns
+        let colsDiv = document.createElement('div');
+        colsDiv.className = "flex flex-row gap-2";
+        for (let col of columns) {
+          let tbl = document.createElement('table');
+          tbl.className = "border border-gray-300 min-w-[300px] mb-2";
+          tbl.innerHTML = `
+            <thead class="sticky-top">
+              <tr>
+                <th rowspan="2" class="bg-slate-100 border border-gray-300">Tanggal</th>
+                <th colspan="2" class="bg-slate-100 border border-gray-300">Kelompok Jaga</th>
+              </tr>
+              <tr>
+                <th class="bg-slate-100 border border-gray-300">Grup 1</th>
+                <th class="bg-slate-100 border border-gray-300">Grup 2</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          `;
+          let tbody = tbl.querySelector('tbody');
+          for (let row of col) {
+            let tr = document.createElement('tr');
+            if (row.isLibur) {
+              tr.className = "bg-gray-200";
+              tr.innerHTML = `<td class="border border-gray-200">${formatTanggal(row.tanggal)}</td>
+                              <td class="border border-gray-200 text-center" colspan="2">Libur</td>`;
+            } else {
+              tr.innerHTML = `<td class="border border-gray-200">${formatTanggal(row.tanggal)}</td>
+                              <td class="border border-gray-200">${row.grup1}</td>
+                              <td class="border border-gray-200">${row.grup2}</td>`;
             }
+            tbody.appendChild(tr);
+          }
+          colsDiv.appendChild(tbl);
+        }
+        panel.appendChild(colsDiv);
+        container.appendChild(panel);
+      }
+    }
 
-            function renderSchedule(scheduleByMonth) {
-                elements.schedulePlaceholder.classList.add('hidden');
-                elements.scheduleOutput.innerHTML = ''; // Hapus jadwal lama
+    // === Export (SheetJS) ===
+    function jadwalToSheet(jadwal) {
+      // Returns array of arrays
+      let data = [["Tanggal", "Grup 1", "Grup 2"]];
+      for (let row of jadwal) {
+        if (row.isLibur) {
+          data.push([formatTanggal(row.tanggal), "Libur", "Libur"]);
+        } else {
+          data.push([formatTanggal(row.tanggal), row.grup1, row.grup2]);
+        }
+      }
+      return data;
+    }
+    document.getElementById('btn-xlsx').onclick = function() {
+      let jadwal = window._jadwalExport || [];
+      let ws_data = jadwalToSheet(jadwal);
+      let ws = XLSX.utils.aoa_to_sheet(ws_data);
+      let wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Jadwal");
+      XLSX.writeFile(wb, "jadwal.xlsx");
+    };
+    document.getElementById('btn-csv').onclick = function() {
+      let jadwal = window._jadwalExport || [];
+      let ws_data = jadwalToSheet(jadwal);
+      let ws = XLSX.utils.aoa_to_sheet(ws_data);
+      let csv = XLSX.utils.sheet_to_csv(ws, {FS:","});
+      let blob = new Blob([csv],{type:"text/csv"});
+      let url = URL.createObjectURL(blob);
+      let a = document.createElement("a");
+      a.href = url;
+      a.download = "jadwal.csv";
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),500);
+    };
 
-                const container = document.createElement('div');
-                container.id = 'schedule-container';
-                container.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
+    document.getElementById('btn-print').onclick = function() {
+      window.print();
+    };
 
-                // Sort months chronologically
-                const sortedMonths = Object.keys(scheduleByMonth).sort((a, b) => {
-                    const [yearA, monthA] = a.split('-');
-                    const [yearB, monthB] = b.split('-');
-                    return new Date(yearA, monthA) - new Date(yearB, monthB);
-                });
-                
-                elements.exportMonthSelect.innerHTML = '';
-
-                for (const monthYearKey of sortedMonths) {
-                    const monthData = scheduleByMonth[monthYearKey];
-                    const monthPanel = document.createElement('div');
-                    const monthId = `month-${monthYearKey}`;
-                    monthPanel.id = monthId;
-                    monthPanel.className = 'month-panel bg-gray-800 rounded-lg shadow-lg overflow-hidden flex flex-col';
-
-                    // Buat header bulan
-                    const monthTitle = document.createElement('h3');
-                    monthTitle.className = 'sticky-header text-xl font-bold text-white bg-gray-900 p-4 text-center';
-                    monthTitle.textContent = formatMonthYearIndonesian(monthData.date);
-                    monthPanel.appendChild(monthTitle);
-                    
-                    // Tambahkan opsi ke dropdown ekspor per bulan
-                    const option = document.createElement('option');
-                    option.value = monthId;
-                    option.textContent = formatMonthYearIndonesian(monthData.date);
-                    elements.exportMonthSelect.appendChild(option);
-
-                    // Buat tabel
-                    const tableContainer = document.createElement('div');
-                    tableContainer.className = 'overflow-x-auto flex-grow';
-                    
-                    const table = document.createElement('table');
-                    table.className = 'w-full text-sm text-left';
-
-                    table.innerHTML = `
-                        <thead class="text-xs text-gray-300 uppercase bg-gray-700">
-                            <tr>
-                                <th rowspan="2" class="sticky-header p-3">Tanggal</th>
-                                <th colspan="2" class="sticky-header p-3 text-center">Kelompok Jaga</th>
-                            </tr>
-                            <tr>
-                                <th class="sticky-header p-3 text-center">Grup 1</th>
-                                <th class="sticky-header p-3 text-center">Grup 2</th>
-                            </tr>
-                        </thead>
-                    `;
-                    
-                    const tbody = document.createElement('tbody');
-                    monthData.days.forEach(day => {
-                        const tr = document.createElement('tr');
-                        tr.className = 'border-b border-gray-700';
-                        if (day.isHoliday) {
-                            tr.classList.add('holiday-row', 'bg-gray-700', 'text-gray-400');
-                        } else {
-                             tr.classList.add('hover:bg-gray-600');
-                        }
-
-                        const tdDate = document.createElement('td');
-                        tdDate.className = 'p-3 font-medium whitespace-nowrap';
-                        tdDate.textContent = formatDateIndonesian(day.date);
-
-                        const tdGroup1 = document.createElement('td');
-                        tdGroup1.className = 'p-3 text-center';
-                        tdGroup1.textContent = day.group1;
-                        
-                        const tdGroup2 = document.createElement('td');
-                        tdGroup2.className = 'p-3 text-center';
-                        tdGroup2.textContent = day.group2;
-
-                        tr.appendChild(tdDate);
-                        tr.appendChild(tdGroup1);
-                        tr.appendChild(tdGroup2);
-                        tbody.appendChild(tr);
-                    });
-
-                    table.appendChild(tbody);
-                    tableContainer.appendChild(table)
-                    monthPanel.appendChild(tableContainer);
-                    container.appendChild(monthPanel);
-                }
-
-                elements.scheduleOutput.appendChild(container);
-                elements.exportPanel.classList.remove('hidden');
-                elements.resetBtn.classList.remove('hidden');
-            }
-            
-            function exportSchedule(type) {
-                const exportAllBtn = elements.exportAllPngBtn;
-                const exportMonthBtn = elements.exportMonthBtn;
-                
-                let targetElement;
-                let filename;
-                let buttonToAnimate;
-                
-                if (type === 'all') {
-                    targetElement = document.getElementById('schedule-container');
-                    filename = `jadwal_lengkap_${new Date().toISOString().split('T')[0]}.png`;
-                    buttonToAnimate = exportAllBtn;
-                } else {
-                    const selectedMonthId = elements.exportMonthSelect.value;
-                    targetElement = document.getElementById(selectedMonthId);
-                    const selectedMonthName = elements.exportMonthSelect.options[elements.exportMonthSelect.selectedIndex].text;
-                    filename = `jadwal_${selectedMonthName.replace(' ', '_')}.png`;
-                    buttonToAnimate = exportMonthBtn;
-                }
-
-                if (!targetElement) {
-                    alert('Elemen jadwal tidak ditemukan!');
-                    return;
-                }
-
-                const originalText = buttonToAnimate.textContent;
-                buttonToAnimate.textContent = 'Memproses...';
-                buttonToAnimate.disabled = true;
-
-                // Opsi untuk html2canvas agar kualitas lebih baik
-                const options = {
-                    scale: 2, // Meningkatkan resolusi
-                    backgroundColor: '#111827', // Latar belakang canvas
-                    useCORS: true,
-                };
-                
-                html2canvas(targetElement, options).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = filename;
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-
-                    buttonToAnimate.textContent = originalText;
-                    buttonToAnimate.disabled = false;
-                }).catch(err => {
-                    console.error('Gagal mengekspor gambar:', err);
-                    alert('Terjadi kesalahan saat mengekspor gambar. Cek konsol untuk detail.');
-                    buttonToAnimate.textContent = originalText;
-                    buttonToAnimate.disabled = false;
-                });
-            }
-
-            function resetForm() {
-                // Reset form fields
-                document.querySelector('#config-panel form, #config-panel div').closest('form')?.reset(); // More robust reset
-                elements.teams.value = '';
-                
-                // Reset flatpickr instances
-                startDatePicker.clear();
-                endDatePicker.clear();
-                holidayPicker.clear();
-
-                // Clear output and hide buttons
-                elements.scheduleOutput.innerHTML = '';
-                elements.schedulePlaceholder.classList.remove('hidden');
-                elements.exportPanel.classList.add('hidden');
-                elements.resetBtn.classList.add('hidden');
-                elements.errorMessage.textContent = '';
-            }
-
-            function handleFileImport(event) {
-                const file = event.target.files[0];
-                if (file && file.type === "text/plain") {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        elements.teams.value = e.target.result;
-                    };
-                    reader.readAsText(file);
-                } else {
-                    elements.errorMessage.textContent = 'Hanya file .txt yang didukung.';
-                }
-                // Reset file input value to allow re-uploading the same file
-                event.target.value = '';
-            }
-
-
-            // --- Helper Functions ---
-            
-            function shuffleArray(array) {
-                for (let i = array.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [array[i], array[j]] = [array[j], array[i]];
-                }
-                return array;
-            }
-
-            function formatDateIndonesian(date) {
-                return date.toLocaleDateString('id-ID', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-            }
-
-            function formatMonthYearIndonesian(date) {
-                return date.toLocaleDateString('id-ID', {
-                    month: 'long',
-                    year: 'numeric'
-                });
-            }
-        });
-    </script>
+    // === Autofill sample for easier demo (optional, can remove for prod) ===
+    if (window.location.hostname === "localhost" || window.location.hostname.endsWith('github.io')) {
+      document.getElementById('tanggal-mulai').value = new Date().toISOString().slice(0,10);
+      let dt = new Date();
+      dt.setDate(dt.getDate()+29);
+      document.getElementById('tanggal-selesai').value = dt.toISOString().slice(0,10);
+      document.getElementById('daftar-regu').value = "Regu A\nRegu B\nRegu C\nRegu D\nRegu E";
+    }
+  </script>
 </body>
 </html>
