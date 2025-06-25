@@ -20,6 +20,7 @@
     .filter-bar select, .filter-bar label { font-size: 13px; }
     .filter-bar input[type="checkbox"] { width: 14px; height: 14px; }
     .filter-bar { gap: 0.7rem; }
+    .row-alt { background: #f3f4f6 !important; }
     @media (max-width:900px) {
       .panel-month { min-width: 0;}
     }
@@ -101,16 +102,16 @@ document.getElementById('startDate').addEventListener('change', function() {
   const startDate = new Date(start);
   const endDate = new Date(startDate);
   endDate.setMonth(startDate.getMonth() + 1);
-  // Pastikan tanggal selesai tidak mundur jika bulan tidak penuh (misal 31 Jan + 1 bulan = 3 Mar)
   if (endDate.getDate() !== startDate.getDate()) {
-    endDate.setDate(0); // hari terakhir bulan berikutnya
+    endDate.setDate(0);
   }
   document.getElementById('endDate').value = endDate.toISOString().slice(0,10);
 });
 
+// Format: "Rab, 25 Jun 2025"
 function formatTanggal(iso) {
-  const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-  const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const hari = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   let d = new Date(iso);
   return `${hari[d.getDay()]}, ${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
 }
@@ -260,12 +261,9 @@ function generateSchedule(start, end, holidaysList, groupList, orderType) {
     // Kumpulkan tanggal kerja (bukan libur)
     let workingDaysIdx = [];
     days.forEach((d, i) => { if (!d.isHoliday) workingDaysIdx.push(i); });
-    let total = workingDaysIdx.length;
-    let perCycle = groupList.length; // Satu siklus = semua grup dapat jatah
     let pool = [];
     let poolIdx = 0;
     let last1=null, last2=null;
-    let cycle = 0;
     for (let i=0; i<days.length; i++) {
       if (days[i].isHoliday) {
         schedule.push({date: days[i].date, group1: 'Libur', group2: 'Libur', isHoliday:true});
@@ -283,7 +281,7 @@ function generateSchedule(start, end, holidaysList, groupList, orderType) {
       // Ambil 2 regu dari pool
       let g1 = pool[poolIdx % pool.length];
       let g2 = pool[(poolIdx+1) % pool.length];
-      // Hindari consecutive duplicate antar hari
+      // Hindari consecutive duplicate antar hari & grup sama
       if (g1===last1 || g2===last2 || g1===last2 || g2===last1 || g1===g2) {
         poolIdx++;
         if (poolIdx+1 >= pool.length) {
@@ -296,7 +294,6 @@ function generateSchedule(start, end, holidaysList, groupList, orderType) {
       schedule.push({date: days[i].date, group1: g1, group2: g2, isHoliday:false});
       last1 = g1; last2 = g2;
       pool.splice(poolIdx,1); // remove g1
-      // Remove g2, adjust index if after g1
       let g2idx = pool.indexOf(g2);
       if (g2idx !== -1) pool.splice(g2idx,1);
       poolIdx = 0;
@@ -324,7 +321,8 @@ document.getElementById('filterLibur').onchange = function() {
   renderScheduleTable(lastJadwal, lastGroups);
 }
 
-/* ==== Render Table Per Bulan, Per 10 Baris Per Kolom ==== */
+/* ==== Render Table Per Bulan, Per 11 Baris Per Kolom ====
+   Baris selang-seling warna (abu-abu/putih), header: Tanggal | Kelompok Jaga | Kelompok Jaga */
 function renderScheduleTable(jadwal, allGroups) {
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
@@ -346,7 +344,7 @@ function renderScheduleTable(jadwal, allGroups) {
     const rows = byMonth[ym];
     const monthTitle = formatBulanTahun(rows[0].date);
 
-    const COL_HEIGHT = 10;
+    const COL_HEIGHT = 11;
     let padded = padRows(rows, COL_HEIGHT);
     let colCnt = padded.length / COL_HEIGHT;
     let cols = [];
@@ -363,21 +361,20 @@ function renderScheduleTable(jadwal, allGroups) {
         <table class="w-full text-xs" style="margin:0">
           <thead>
             <tr>
-              <th rowspan="2" class="sticky-header">Tanggal</th>
-              <th colspan="2" class="sticky-header">Kelompok Jaga</th>
-            </tr>
-            <tr>
-              <th class="sticky-header">Grup 1</th>
-              <th class="sticky-header">Grup 2</th>
+              <th class="sticky-header">Tanggal</th>
+              <th class="sticky-header">Kelompok Jaga</th>
+              <th class="sticky-header">Kelompok Jaga</th>
             </tr>
           </thead>
           <tbody>
-            ${cols[cc].map(row=>{
+            ${cols[cc].map((row, ri)=>{
               if (!row) return `<tr><td class="empty-cell"></td><td class="empty-cell"></td><td class="empty-cell"></td></tr>`;
-              if (row.isHoliday)
-                return `<tr class="holiday-row"><td>${formatTanggal(row.date)}</td><td>${row.group1}</td><td>${row.group2}</td></tr>`;
-              else
-                return `<tr><td>${formatTanggal(row.date)}</td><td>${row.group1}</td><td>${row.group2}</td></tr>`;
+              let trClass = row.isHoliday ? 'holiday-row' : (ri%2===1 ? 'row-alt' : '');
+              return `<tr class="${trClass}">
+                <td>${formatTanggal(row.date)}</td>
+                <td>${row.group1}</td>
+                <td>${row.group2}</td>
+              </tr>`;
             }).join('')}
           </tbody>
         </table>
@@ -402,7 +399,7 @@ async function exportToExcel() {
   if (!rows.length) return alert('Tidak ada data untuk diunduh!');
   const workbook = new window.ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet('Jadwal');
-  worksheet.addRow(['Bulan','Tanggal','Grup 1','Grup 2']);
+  worksheet.addRow(['Bulan','Tanggal','Kelompok Jaga 1','Kelompok Jaga 2']);
   rows.forEach(r=>worksheet.addRow(r));
   worksheet.columns.forEach(col => { col.width = 25; });
   const buf = await workbook.xlsx.writeBuffer();
@@ -439,7 +436,7 @@ document.getElementById('downloadXLSX').onclick = function() {
 document.getElementById('downloadCSV').onclick = function() {
   const rows = getScheduleDataForExport();
   if (!rows.length) return alert('Tidak ada data untuk diunduh!');
-  let csv = 'Bulan,Tanggal,Grup 1,Grup 2\n'+rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  let csv = 'Bulan,Tanggal,Kelompok Jaga 1,Kelompok Jaga 2\n'+rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
