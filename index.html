@@ -1,678 +1,351 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Penjadwal Kelompok Jaga</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.4;
-            color: #333;
-            background: #f8f9fa;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .header h1 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-        
-        .config-section {
-            background: white;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #555;
-        }
-        
-        .form-group input, .form-group textarea, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        .form-group textarea {
-            height: 100px;
-            resize: vertical;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-            margin-top: 10px;
-        }
-        
-        .file-input {
-            position: absolute;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        
-        .file-input-label {
-            display: inline-block;
-            padding: 8px 16px;
-            background: #007bff;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        
-        .file-input-label:hover {
-            background: #0056b3;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 20px;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: background-color 0.2s;
-        }
-        
-        .btn-primary {
-            background: #007bff;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #0056b3;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #545b62;
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover {
-            background: #1e7e34;
-        }
-        
-        .results-section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .results-header {
-            padding: 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .results-header h2 {
-            color: #2c3e50;
-        }
-        
-        .export-buttons {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .schedule-container {
-            padding: 20px;
-            max-height: 80vh;
-            overflow: auto;
-        }
-        
-        .month-panels {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-        }
-        
-        .month-panel {
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        
-        .month-header {
-            background: #2c3e50;
-            color: white;
-            padding: 12px;
-            text-align: center;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        .month-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        
-        .month-table th {
-            background: #f8f9fa;
-            padding: 8px 6px;
-            text-align: center;
-            font-weight: 600;
-            border: 1px solid #dee2e6;
-            position: sticky;
-            top: 44px;
-            z-index: 5;
-        }
-        
-        .month-table td {
-            padding: 6px;
-            text-align: center;
-            border: 1px solid #dee2e6;
-            font-size: 11px;
-        }
-        
-        .date-cell {
-            font-weight: 600;
-            min-width: 100px;
-        }
-        
-        .group-cell {
-            min-width: 80px;
-        }
-        
-        .holiday-row {
-            background: #f1f3f4;
-            color: #6c757d;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-        }
-        
-        @media print {
-            body {
-                background: white;
-            }
-            
-            .config-section,
-            .results-header {
-                display: none;
-            }
-            
-            .results-section {
-                box-shadow: none;
-            }
-            
-            .month-table {
-                font-size: 10px;
-            }
-            
-            .month-table td,
-            .month-table th {
-                padding: 4px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Penjadwalan Regu Jaga</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
+  <style>
+    /* Scrollbar and sticky fix for print/screenshot */
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      z-index: 2;
+    }
+    .sticky-month {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #e0e7ef;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+    }
+    th, td { font-size: 13px !important; padding: 2px 6px !important; }
+    table { border-collapse: collapse; }
+    thead th { border-bottom: 1px solid #cbd5e1; }
+    td, th { border: 1px solid #e5e7eb; }
+    .holiday-row { background: #f3f4f6 !important; color: #888 !important; }
+  </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Penjadwal Kelompok Jaga</h1>
-            <p>Sistem penjadwalan otomatis untuk kelompok jaga harian</p>
+<body class="bg-slate-50 min-h-screen text-slate-700">
+
+  <!-- Header -->
+  <div class="w-full bg-white shadow-sm p-3 mb-4 sticky top-0 z-10">
+    <h1 class="text-xl font-semibold text-center">Penjadwalan Regu Jaga (Client-side)</h1>
+  </div>
+
+  <!-- Main Container -->
+  <div id="main-content" class="max-w-6xl mx-auto px-2">
+    <form id="configForm" class="bg-white rounded-md shadow p-4 mb-6">
+      <div class="grid md:grid-cols-3 gap-4">
+
+        <!-- Tanggal Mulai/Selesai -->
+        <div>
+          <label class="block text-sm mb-1 font-medium">Tanggal Mulai</label>
+          <input type="date" id="startDate" required class="border rounded w-full p-1 text-sm"/>
+          <label class="block mt-3 text-sm mb-1 font-medium">Tanggal Selesai</label>
+          <input type="date" id="endDate" required class="border rounded w-full p-1 text-sm"/>
         </div>
 
-        <div id="configSection" class="config-section">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="startDate">Tanggal Mulai:</label>
-                    <input type="date" id="startDate" required>
-                </div>
-                <div class="form-group">
-                    <label for="endDate">Tanggal Selesai:</label>
-                    <input type="date" id="endDate" required>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="groupList">Daftar Kelompok (satu per baris):</label>
-                <textarea id="groupList" placeholder="Kelompok A&#10;Kelompok B&#10;Kelompok C&#10;Kelompok D"></textarea>
-                <div class="file-input-wrapper">
-                    <input type="file" id="groupFile" class="file-input" accept=".txt">
-                    <label for="groupFile" class="file-input-label">Import dari File TXT</label>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="holidays">Hari Libur (pisahkan dengan koma, format: YYYY-MM-DD):</label>
-                <input type="text" id="holidays" placeholder="2025-06-01, 2025-06-17, 2025-07-04">
-            </div>
-
-            <div class="form-group">
-                <label for="shuffleOption">Metode Pengacakan:</label>
-                <select id="shuffleOption">
-                    <option value="full">Acak Penuh (Shuffle setiap siklus)</option>
-                    <option value="controlled">Acak Terkontrol (Hindari duplikat berurutan)</option>
-                </select>
-            </div>
-
-            <div class="button-group">
-                <button class="btn btn-primary" onclick="generateSchedule()">Generate Jadwal</button>
-            </div>
-
-            <div id="errorMessage" class="error-message hidden"></div>
+        <!-- Daftar Regu -->
+        <div>
+          <label class="block text-sm mb-1 font-medium">Daftar Regu (satu per baris)</label>
+          <textarea id="groupList" rows="7" required class="border rounded w-full p-1 text-sm resize-none"></textarea>
+          <div class="flex items-center gap-2 mt-2">
+            <input type="file" id="importTxt" accept=".txt" class="hidden"/>
+            <button type="button" id="importBtn" class="px-2 py-1 text-xs bg-slate-200 rounded hover:bg-slate-300">Import TXT</button>
+            <span id="importStat" class="text-xs text-green-600"></span>
+          </div>
         </div>
 
-        <div id="resultsSection" class="results-section hidden">
-            <div class="results-header">
-                <h2>Jadwal Kelompok Jaga</h2>
-                <div class="export-buttons">
-                    <button class="btn btn-success" onclick="exportToExcel()">Download XLSX</button>
-                    <button class="btn btn-success" onclick="exportToCSV()">Download CSV</button>
-                    <button class="btn btn-secondary" onclick="printSchedule()">Print</button>
-                    <button class="btn btn-secondary" onclick="resetForm()">Reset</button>
-                </div>
+        <!-- Hari Libur & Opsi Urutan -->
+        <div>
+          <label class="block text-sm mb-1 font-medium">Hari Libur (multi-date)</label>
+          <div id="holidayPicker" class="flex flex-wrap gap-1 mb-2"></div>
+          <input type="date" id="holidayInput" class="border rounded p-1 text-sm"/>
+          <button type="button" id="addHolidayBtn" class="ml-1 px-2 py-1 text-xs bg-slate-200 rounded hover:bg-slate-300">Tambah</button>
+          <div class="mt-4">
+            <label class="block text-sm mb-1 font-medium">Opsi Urutan Regu</label>
+            <div class="flex gap-4 mt-1">
+              <label class="flex items-center gap-1 text-sm"><input type="radio" name="orderType" value="shuffle" checked/> Acak per siklus</label>
+              <label class="flex items-center gap-1 text-sm"><input type="radio" name="orderType" value="manual"/> Manual (urutan tetap)</label>
             </div>
-            <div id="scheduleContainer" class="schedule-container">
-                <!-- Schedule will be rendered here -->
-            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="flex gap-2 mt-6 justify-end">
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Generate</button>
+        <button type="button" id="resetBtn" class="px-4 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300">Reset</button>
+      </div>
+    </form>
+
+    <!-- Export & Print Buttons -->
+    <div id="exportBar" class="mb-3 flex gap-2 no-print" style="display:none">
+      <button id="downloadXLSX" class="px-3 py-2 text-xs bg-green-600 text-white rounded hover:bg-green-700">Download XLSX</button>
+      <button id="downloadCSV" class="px-3 py-2 text-xs bg-sky-600 text-white rounded hover:bg-sky-700">Download CSV</button>
+      <button onclick="window.print()" class="px-3 py-2 text-xs bg-slate-400 text-white rounded hover:bg-slate-500">Print</button>
     </div>
 
-    <script>
-        // Global variables to store schedule data
-        let scheduleData = [];
-        let groupList = [];
-        let holidayDates = new Set();
+    <!-- Jadwal Output -->
+    <div id="scheduleOut" class="overflow-x-auto"></div>
+  </div>
 
-        // Indonesian day and month names
-        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-        const monthNames = [
-            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-        ];
+<script>
+/* ==== STATE ==== */
+let holidays = [];
 
-        // File upload handler
-        document.getElementById('groupFile').addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file && file.type === 'text/plain') {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const content = e.target.result;
-                    document.getElementById('groupList').value = content.trim();
-                };
-                reader.readAsText(file);
-            }
-        });
+/* ==== Hari Libur Picker ==== */
+function renderHolidayPicker() {
+  const container = document.getElementById('holidayPicker');
+  container.innerHTML = '';
+  holidays.sort();
+  holidays.forEach((d, idx) => {
+    const badge = document.createElement('span');
+    badge.className = 'bg-slate-300 text-xs rounded px-2 py-1 mr-1 mb-1 cursor-pointer hover:bg-red-400';
+    badge.innerText = formatTanggal(d);
+    badge.title = 'Klik untuk hapus';
+    badge.onclick = () => { holidays.splice(idx,1); renderHolidayPicker(); };
+    container.appendChild(badge);
+  });
+}
+document.getElementById('addHolidayBtn').onclick = function() {
+  const val = document.getElementById('holidayInput').value;
+  if (val && !holidays.includes(val)) {
+    holidays.push(val);
+    renderHolidayPicker();
+    document.getElementById('holidayInput').value = '';
+  }
+};
 
-        // Utility function to format date in Indonesian
-        function formatDateIndonesian(date) {
-            const day = dayNames[date.getDay()];
-            const dateNum = date.getDate();
-            const month = monthNames[date.getMonth()];
-            const year = date.getFullYear();
-            return `${day}, ${dateNum} ${month} ${year}`;
+/* ==== Import TXT ==== */
+document.getElementById('importBtn').onclick = () => document.getElementById('importTxt').click();
+document.getElementById('importTxt').onchange = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const lines = ev.target.result.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    document.getElementById('groupList').value = lines.join('\n');
+    document.getElementById('importStat').innerText = 'Berhasil diimport!';
+    setTimeout(()=>{document.getElementById('importStat').innerText='';}, 2000);
+  };
+  reader.readAsText(file);
+};
+
+/* ==== Reset ==== */
+document.getElementById('resetBtn').onclick = function() {
+  document.getElementById('configForm').reset();
+  document.getElementById('groupList').value = '';
+  holidays = [];
+  renderHolidayPicker();
+  document.getElementById('scheduleOut').innerHTML = '';
+  document.getElementById('exportBar').style.display = 'none';
+};
+
+/* ==== Generate ==== */
+document.getElementById('configForm').onsubmit = function(e) {
+  e.preventDefault();
+
+  // Ambil input
+  const startDate = document.getElementById('startDate').value;
+  const endDate = document.getElementById('endDate').value;
+  let groups = document.getElementById('groupList').value.split('\n').map(g=>g.trim()).filter(Boolean);
+  const orderType = document.querySelector('input[name="orderType"]:checked').value;
+  if (groups.length < 2) {
+    alert('Minimal 2 regu diperlukan');
+    return;
+  }
+  if (!startDate || !endDate || startDate > endDate) {
+    alert('Tanggal mulai/selesai tidak valid');
+    return;
+  }
+  // Generate jadwal
+  const jadwal = generateSchedule(startDate, endDate, holidays, groups, orderType);
+  renderScheduleTable(jadwal);
+  document.getElementById('exportBar').style.display = '';
+};
+
+/* ==== Jadwal Generator ==== */
+function shuffleArray(arr) {
+  let a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function generateSchedule(start, end, holidaysList, groupList, orderType) {
+  // Buat daftar tanggal valid (exclude libur)
+  let days = [];
+  let cur = new Date(start);
+  const endDate = new Date(end);
+  holidaysList = holidaysList.slice();
+  while (cur <= endDate) {
+    const iso = cur.toISOString().slice(0,10);
+    days.push({date: iso, isHoliday: holidaysList.includes(iso)});
+    cur.setDate(cur.getDate()+1);
+  }
+  // Penjadwalan
+  let schedule = [];
+  let pool = groupList.slice();
+  let idx = 0, last1=null, last2=null;
+
+  for (let d of days) {
+    if (d.isHoliday) {
+      schedule.push({date: d.date, group1: 'Libur', group2: 'Libur', isHoliday:true});
+      continue;
+    }
+    let g1, g2;
+    if (orderType === 'manual') {
+      g1 = pool[idx % pool.length];
+      g2 = pool[(idx+1)%pool.length];
+      // Cegah duplikat berurutan
+      if (g1===last1 || g2===last2 || g1===last2 || g2===last1) {
+        idx++;
+        g1 = pool[idx % pool.length];
+        g2 = pool[(idx+1)%pool.length];
+      }
+      idx++;
+    } else { // shuffle per siklus
+      if (idx===0 || idx>=pool.length-1) {
+        pool = shuffleArray(pool);
+        // Pastikan reshuffle tidak menyebabkan duplikat dengan hari sebelumnya
+        if (last1 && (pool[0]===last1 || pool[1]===last2)) {
+          pool = shuffleArray(pool);
         }
-
-        // Utility function to get month-year string
-        function getMonthYear(date) {
-            const month = monthNames[date.getMonth()];
-            const year = date.getFullYear();
-            return `${month} ${year}`;
+        idx = 0;
+      }
+      g1 = pool[idx];
+      g2 = pool[idx+1];
+      // Cegah duplikat berurutan
+      if (g1===last1 || g2===last2 || g1===last2 || g2===last1) {
+        idx++;
+        if (idx>=pool.length-1) {
+          pool = shuffleArray(pool);
+          idx = 0;
         }
+        g1 = pool[idx];
+        g2 = pool[idx+1];
+      }
+      idx++;
+    }
+    last1=g1; last2=g2;
+    schedule.push({date: d.date, group1: g1, group2: g2, isHoliday:false});
+  }
+  return schedule;
+}
 
-        // Shuffle algorithm that ensures no consecutive duplicates
-        function shuffleGroups(groups, avoidConsecutive = false, lastGroup = null) {
-            let shuffledGroups = [...groups];
-            
-            // Fisher-Yates shuffle
-            for (let i = shuffledGroups.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffledGroups[i], shuffledGroups[j]] = [shuffledGroups[j], shuffledGroups[i]];
-            }
-            
-            // If avoiding consecutive and first group matches last group, try to rearrange
-            if (avoidConsecutive && lastGroup && shuffledGroups[0] === lastGroup && shuffledGroups.length > 1) {
-                // Swap with second element
-                [shuffledGroups[0], shuffledGroups[1]] = [shuffledGroups[1], shuffledGroups[0]];
-            }
-            
-            return shuffledGroups;
-        }
+/* ==== Format Hari Indonesia ==== */
+function formatTanggal(iso) {
+  const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  let d = new Date(iso);
+  return `${hari[d.getDay()]}, ${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+}
+function formatBulanTahun(iso) {
+  const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  let d = new Date(iso);
+  return `${bulan[d.getMonth()]} ${d.getFullYear()}`;
+}
 
-        // Main scheduling logic
-        function createSchedule(startDate, endDate, groups, holidays, shuffleOption) {
-            const schedule = [];
-            const currentDate = new Date(startDate);
-            const endDateObj = new Date(endDate);
-            
-            let availableGroups = [];
-            let lastAssignedGroups = null;
-            
-            while (currentDate <= endDateObj) {
-                const dateStr = currentDate.toISOString().split('T')[0];
-                const isHoliday = holidays.has(dateStr);
-                
-                let group1, group2;
-                
-                if (isHoliday) {
-                    group1 = 'Libur';
-                    group2 = 'Libur';
-                } else {
-                    // Refill groups if empty
-                    if (availableGroups.length < 2) {
-                        const shouldAvoidConsecutive = shuffleOption === 'controlled';
-                        const lastGroup = lastAssignedGroups ? lastAssignedGroups[1] : null;
-                        availableGroups = shuffleGroups(groups, shouldAvoidConsecutive, lastGroup);
-                    }
-                    
-                    // Assign two groups for the day
-                    group1 = availableGroups.shift();
-                    group2 = availableGroups.shift();
-                    lastAssignedGroups = [group1, group2];
-                }
-                
-                schedule.push({
-                    date: new Date(currentDate),
-                    dateFormatted: formatDateIndonesian(currentDate),
-                    group1: group1,
-                    group2: group2,
-                    isHoliday: isHoliday
-                });
-                
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-            
-            return schedule;
-        }
+/* ==== Render Schedule Table ==== */
+function groupByMonth(jadwal) {
+  let map = {};
+  jadwal.forEach(row => {
+    let ym = row.date.slice(0,7);
+    if (!map[ym]) map[ym]=[];
+    map[ym].push(row);
+  });
+  return map;
+}
+function renderScheduleTable(jadwal) {
+  const byMonth = groupByMonth(jadwal);
+  let html = '<div class="flex flex-wrap gap-6">';
+  for (let ym in byMonth) {
+    const rows = byMonth[ym];
+    const monthTitle = formatBulanTahun(rows[0].date);
+    // Panel per bulan
+    html += `<div class="min-w-[340px] bg-white rounded shadow p-2 pb-4 flex-1">
+      <div class="sticky-month top-0 z-10 text-base font-semibold mb-2 text-center">${monthTitle}</div>
+      <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead class="sticky-header">
+          <tr>
+            <th rowspan="2" class="sticky-header">Tanggal</th>
+            <th colspan="2" class="sticky-header">Kelompok Jaga</th>
+          </tr>
+          <tr>
+            <th class="sticky-header">Grup 1</th>
+            <th class="sticky-header">Grup 2</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    // 15 baris per kolom, kolom lanjut di panel yang sama
+    let colCnt = Math.ceil(rows.length/15);
+    for (let col=0; col<colCnt; col++) {
+      let start = col*15, end = Math.min(rows.length, (col+1)*15);
+      if (col>0) html += `<tr><td colspan="3" class="h-2"></td></tr>`; // spasi antar kolom
+      for (let i=start; i<end; i++) {
+        const row = rows[i];
+        html += `<tr class="${row.isHoliday?'holiday-row':''}">
+          <td>${formatTanggal(row.date)}</td>
+          <td>${row.group1}</td>
+          <td>${row.group2}</td>
+        </tr>`;
+      }
+    }
+    html += '</tbody></table></div></div>';
+  }
+  html += '</div>';
+  document.getElementById('scheduleOut').innerHTML = html;
+}
 
-        // Render schedule as month panels
-        function renderSchedule(schedule) {
-            const container = document.getElementById('scheduleContainer');
-            
-            // Group schedule by month
-            const monthGroups = {};
-            schedule.forEach(entry => {
-                const monthKey = getMonthYear(entry.date);
-                if (!monthGroups[monthKey]) {
-                    monthGroups[monthKey] = [];
-                }
-                monthGroups[monthKey].push(entry);
-            });
-            
-            // Create month panels
-            let html = '<div class="month-panels">';
-            
-            Object.keys(monthGroups).forEach(monthKey => {
-                const monthEntries = monthGroups[monthKey];
-                
-                html += `
-                    <div class="month-panel">
-                        <div class="month-header">${monthKey}</div>
-                        <table class="month-table">
-                            <thead>
-                                <tr>
-                                    <th rowspan="2">Tanggal</th>
-                                    <th colspan="2">Kelompok Jaga</th>
-                                </tr>
-                                <tr>
-                                    <th>Grup 1</th>
-                                    <th>Grup 2</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                `;
-                
-                // Split entries into columns of 15 rows each
-                const maxRowsPerColumn = 15;
-                const columns = [];
-                for (let i = 0; i < monthEntries.length; i += maxRowsPerColumn) {
-                    columns.push(monthEntries.slice(i, i + maxRowsPerColumn));
-                }
-                
-                // Render columns side by side
-                const maxRows = Math.max(...columns.map(col => col.length));
-                for (let rowIndex = 0; rowIndex < maxRows; rowIndex++) {
-                    columns.forEach((column, colIndex) => {
-                        if (rowIndex < column.length) {
-                            const entry = column[rowIndex];
-                            const rowClass = entry.isHoliday ? 'holiday-row' : '';
-                            html += `
-                                <tr class="${rowClass}">
-                                    <td class="date-cell">${entry.dateFormatted}</td>
-                                    <td class="group-cell">${entry.group1}</td>
-                                    <td class="group-cell">${entry.group2}</td>
-                                </tr>
-                            `;
-                        }
-                    });
-                }
-                
-                html += `
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            container.innerHTML = html;
-        }
-
-        // Validate form inputs
-        function validateInputs() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const groupText = document.getElementById('groupList').value.trim();
-            
-            if (!startDate || !endDate) {
-                return 'Harap isi tanggal mulai dan tanggal selesai.';
-            }
-            
-            if (new Date(startDate) > new Date(endDate)) {
-                return 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai.';
-            }
-            
-            if (!groupText) {
-                return 'Harap isi daftar kelompok.';
-            }
-            
-            const groups = groupText.split('\n').map(g => g.trim()).filter(g => g);
-            if (groups.length < 2) {
-                return 'Minimal harus ada 2 kelompok.';
-            }
-            
-            return null;
-        }
-
-        // Show error message
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.classList.remove('hidden');
-        }
-
-        // Hide error message
-        function hideError() {
-            document.getElementById('errorMessage').classList.add('hidden');
-        }
-
-        // Main function to generate schedule
-        function generateSchedule() {
-            hideError();
-            
-            // Validate inputs
-            const error = validateInputs();
-            if (error) {
-                showError(error);
-                return;
-            }
-            
-            // Get form values
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
-            const groupText = document.getElementById('groupList').value.trim();
-            const holidayText = document.getElementById('holidays').value.trim();
-            const shuffleOption = document.getElementById('shuffleOption').value;
-            
-            // Parse groups
-            groupList = groupText.split('\n').map(g => g.trim()).filter(g => g);
-            
-            // Parse holidays
-            holidayDates = new Set();
-            if (holidayText) {
-                const holidays = holidayText.split(',').map(h => h.trim());
-                holidays.forEach(holiday => {
-                    if (holiday.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        holidayDates.add(holiday);
-                    }
-                });
-            }
-            
-            // Generate schedule
-            scheduleData = createSchedule(startDate, endDate, groupList, holidayDates, shuffleOption);
-            
-            // Render schedule
-            renderSchedule(scheduleData);
-            
-            // Show results section
-            document.getElementById('configSection').classList.add('hidden');
-            document.getElementById('resultsSection').classList.remove('hidden');
-        }
-
-        // Export to Excel
-        function exportToExcel() {
-            const workbook = XLSX.utils.book_new();
-            
-            // Prepare data for export
-            const exportData = [
-                ['Tanggal', 'Grup 1', 'Grup 2']
-            ];
-            
-            scheduleData.forEach(entry => {
-                exportData.push([
-                    entry.dateFormatted,
-                    entry.group1,
-                    entry.group2
-                ]);
-            });
-            
-            const worksheet = XLSX.utils.aoa_to_sheet(exportData);
-            XLSX.utils.book_append_sheet(workbook, worksheet, 'Jadwal Kelompok Jaga');
-            
-            // Generate filename with current date
-            const now = new Date();
-            const filename = `jadwal_kelompok_jaga_${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}.xlsx`;
-            
-            XLSX.writeFile(workbook, filename);
-        }
-
-        // Export to CSV
-        function exportToCSV() {
-            let csvContent = 'Tanggal,Grup 1,Grup 2\n';
-            
-            scheduleData.forEach(entry => {
-                csvContent += `"${entry.dateFormatted}","${entry.group1}","${entry.group2}"\n`;
-            });
-            
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            
-            if (link.download !== undefined) {
-                const now = new Date();
-                const filename = `jadwal_kelompok_jaga_${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}.csv`;
-                
-                const url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', filename);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        }
-
-        // Print schedule
-        function printSchedule() {
-            window.print();
-        }
-
-        // Reset form
-        function resetForm() {
-            document.getElementById('configSection').classList.remove('hidden');
-            document.getElementById('resultsSection').classList.add('hidden');
-            hideError();
-        }
-
-        // Initialize form with sample data on page load
-        window.addEventListener('DOMContentLoaded', function() {
-            const today = new Date();
-            const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, today.getDate());
-            
-            document.getElementById('startDate').value = today.toISOString().split('T')[0];
-            document.getElementById('endDate').value = nextMonth.toISOString().split('T')[0];
-            
-            document.getElementById('groupList').value = 'Kelompok A\nKelompok B\nKelompok C\nKelompok D\nKelompok E\nKelompok F';
-        });
-    </script>
+/* ==== EXPORT XLSX/CSV ==== */
+function getScheduleDataForExport() {
+  // Flat array: [Tanggal, Grup 1, Grup 2]
+  const tables = document.querySelectorAll('#scheduleOut table');
+  if (!tables.length) return [];
+  let data = [];
+  tables.forEach(tb=>{
+    const month = tb.closest('div').querySelector('.sticky-month')?.innerText || '';
+    const rows = tb.querySelectorAll('tbody tr');
+    rows.forEach(tr=>{
+      const tds = tr.querySelectorAll('td');
+      if (tds.length===3) {
+        data.push([month, tds[0].innerText, tds[1].innerText, tds[2].innerText]);
+      }
+    });
+  });
+  return data;
+}
+document.getElementById('downloadXLSX').onclick = function() {
+  const rows = getScheduleDataForExport();
+  if (!rows.length) return;
+  const ws = XLSX.utils.aoa_to_sheet([['Bulan','Tanggal','Grup 1','Grup 2'], ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Jadwal');
+  XLSX.writeFile(wb, 'jadwal_regu.xlsx');
+};
+document.getElementById('downloadCSV').onclick = function() {
+  const rows = getScheduleDataForExport();
+  if (!rows.length) return;
+  let csv = 'Bulan,Tanggal,Grup 1,Grup 2\n'+rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'jadwal_regu.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+</script>
 </body>
 </html>
