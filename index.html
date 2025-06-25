@@ -19,6 +19,10 @@
     @media print {
       .no-print { display: none !important; }
       html, body { background: #fff !important; }
+      #output-panel { padding: 0 !important; }
+      #jadwal-tabel { gap: 0.5rem !important; }
+      .shadow, .rounded, .border { box-shadow: none !important; border: 1px solid #888 !important; }
+      .bg-white, .bg-slate-100 { background: #fff !important; }
     }
   </style>
 </head>
@@ -69,7 +73,7 @@
   </div>
 
   <!-- Output Panel -->
-  <div id="output-panel" class="w-full max-w-[96vw] hidden flex-col items-center">
+  <div id="output-panel" class="w-full max-w-[100vw] hidden flex-col items-center">
     <div class="flex flex-wrap justify-between mb-2 gap-2 no-print">
       <div class="flex gap-2">
         <button id="btn-xlsx" class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm">Download XLSX</button>
@@ -78,7 +82,10 @@
       </div>
       <button id="btn-reset" class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-semibold">Reset</button>
     </div>
-    <div id="jadwal-tabel" class="w-full flex flex-wrap gap-4 justify-center"></div>
+    <div id="jadwal-tabel"
+      class="w-full overflow-x-auto pb-4"
+      style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px,1fr)); gap: 1.5rem;">
+    </div>
   </div>
 
   <!-- Multi-date picker modal -->
@@ -260,7 +267,6 @@
         }
         return a;
       };
-      let poolHistory = [];
       for (let hari of tglList) {
         if (liburSet.has(hari)) {
           jadwal.push({tanggal: hari, grup1: "Libur", grup2: "Libur", isLibur: true});
@@ -276,20 +282,17 @@
             cycleCount++;
           }
           // Pilih dua grup, tidak sama dengan kemarin
-          let available = pool.slice(idx).concat(pool.slice(0,idx));
           let tryCount = 0;
           do {
             if (idx + 2 > pool.length) {
               // At end, wrap
               pool = shuffle(regu);
               idx = 0;
-              available = pool.slice(idx);
             }
             g1 = pool[idx % pool.length];
             g2 = pool[(idx + 1) % pool.length];
             idx += 2;
             tryCount++;
-            // Hindari duplikat hari sebelumnya
           } while ((prev.includes(g1) || g1 === g2) && tryCount < 10*regu.length);
 
           jadwal.push({tanggal: hari, grup1: g1, grup2: g2, isLibur: false});
@@ -309,7 +312,7 @@
       window._jadwalExport = jadwal;
     }
 
-    // === Rendering Tabel Jadwal ===
+    // === Rendering Tabel Jadwal (IMPROVED RESPONSIVE & WRAPPING) ===
     function renderJadwalTable(jadwal) {
       // Group by bulan
       let byBulan = {};
@@ -318,7 +321,7 @@
         if (!byBulan[blnKey]) byBulan[blnKey] = [];
         byBulan[blnKey].push(row);
       }
-      // Render each month as a panel
+      // Render each month as a panel (grid)
       let container = document.getElementById('jadwal-tabel');
       container.innerHTML = "";
       for (let blnKey of Object.keys(byBulan)) {
@@ -330,27 +333,31 @@
         }
         // Panel
         let panel = document.createElement('div');
-        panel.className = "bg-white rounded shadow p-2 mb-4 flex flex-col gap-2 min-w-[330px] max-w-[370px] flex-1";
+        panel.className = "bg-white rounded shadow flex flex-col mb-2 border border-slate-200 overflow-hidden";
+        panel.style.minWidth = "350px";
+        panel.style.maxWidth = "430px";
+        panel.style.overflowX = "auto";
         // Sticky month header
         let monthHeader = document.createElement('div');
-        monthHeader.className = "sticky-month text-center text-base font-bold mb-1 py-1 border-b border-slate-200 bg-slate-100";
+        monthHeader.className = "sticky top-0 text-center text-base font-bold py-2 px-2 border-b border-slate-200 bg-slate-100 z-20";
         monthHeader.innerText = formatTanggal(blnKey + "-01", {bulan:true});
         panel.appendChild(monthHeader);
         // Columns
         let colsDiv = document.createElement('div');
-        colsDiv.className = "flex flex-row gap-2";
+        colsDiv.className = "flex flex-row gap-2 px-2 pb-2";
         for (let col of columns) {
           let tbl = document.createElement('table');
-          tbl.className = "border border-gray-300 min-w-[300px] mb-2";
+          tbl.className = "border border-gray-300 w-full mb-2 min-w-[300px] max-w-[380px] table-auto";
+          tbl.style.tableLayout = "fixed";
           tbl.innerHTML = `
-            <thead class="sticky-top">
+            <thead class="sticky top-10 z-10">
               <tr>
-                <th rowspan="2" class="bg-slate-100 border border-gray-300">Tanggal</th>
-                <th colspan="2" class="bg-slate-100 border border-gray-300">Kelompok Jaga</th>
+                <th rowspan="2" class="bg-slate-100 border border-gray-300 sticky top-10 z-10 w-[120px]">Tanggal</th>
+                <th colspan="2" class="bg-slate-100 border border-gray-300 sticky top-10 z-10">Kelompok Jaga</th>
               </tr>
               <tr>
-                <th class="bg-slate-100 border border-gray-300">Grup 1</th>
-                <th class="bg-slate-100 border border-gray-300">Grup 2</th>
+                <th class="bg-slate-100 border border-gray-300 sticky top-16 z-10 w-[90px]">Grup 1</th>
+                <th class="bg-slate-100 border border-gray-300 sticky top-16 z-10 w-[90px]">Grup 2</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -360,12 +367,12 @@
             let tr = document.createElement('tr');
             if (row.isLibur) {
               tr.className = "bg-gray-200";
-              tr.innerHTML = `<td class="border border-gray-200">${formatTanggal(row.tanggal)}</td>
-                              <td class="border border-gray-200 text-center" colspan="2">Libur</td>`;
+              tr.innerHTML = `<td class="border border-gray-200 whitespace-nowrap text-left">${formatTanggal(row.tanggal)}</td>
+                              <td class="border border-gray-200 text-center font-semibold" colspan="2">Libur</td>`;
             } else {
-              tr.innerHTML = `<td class="border border-gray-200">${formatTanggal(row.tanggal)}</td>
-                              <td class="border border-gray-200">${row.grup1}</td>
-                              <td class="border border-gray-200">${row.grup2}</td>`;
+              tr.innerHTML = `<td class="border border-gray-200 whitespace-nowrap text-left">${formatTanggal(row.tanggal)}</td>
+                              <td class="border border-gray-200 whitespace-normal truncate">${row.grup1}</td>
+                              <td class="border border-gray-200 whitespace-normal truncate">${row.grup2}</td>`;
             }
             tbody.appendChild(tr);
           }
