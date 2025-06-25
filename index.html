@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Jadwal Piket</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/id.js"></script> <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
+    <style>
+        /* Custom styles */
+        body {
+            background-color: #f8fafc; /* gray-50 */
+        }
+        
+        /* Sticky header for the schedule table */
+        #schedule-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #f1f5f9; /* gray-200 */
+        }
+
+        /* Styling for printing */
+        @media print {
+            body {
+                background-color: #ffffff;
+            }
+            #config-section, #output-actions, .no-print {
+                display: none !important;
+            }
+            #output-section {
+                display: block !important;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border: none;
+            }
+            #schedule-container {
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+            #schedule-table {
+                font-size: 10pt;
+            }
+            /* Ensure background colors are printed */
+            .print-bg-gray-200 {
+                background-color: #e5e7eb !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <header class="text-center mb-8 no-print">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Generator Jadwal Piket</h1>
+            <p class="text-gray-600 mt-2">Buat jadwal jaga regu dengan mudah dan cepat.</p>
+        </header>
+
+        <section id="config-section" class="bg-white p-6 rounded-lg shadow-lg mb-8">
+            <form id="config-form" onsubmit="return false;">
+                <h2 class="text-2xl font-semibold mb-6 border-b pb-3">1. Konfigurasi Jadwal</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai</label>
+                        <input type="text" id="startDate" placeholder="Pilih tanggal mulai..." class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai</label>
+                        <input type="text" id="endDate" placeholder="Pilih tanggal selesai..." class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="holidays" class="block text-sm font-medium text-gray-700 mb-1">Pilih Hari Libur (Opsional)</label>
+                        <input type="text" id="holidays" placeholder="Klik untuk memilih beberapa tanggal libur..." class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="teams" class="block text-sm font-medium text-gray-700 mb-1">Daftar Nama Regu/Kelompok</label>
+                        <textarea id="teams" rows="4" placeholder="Masukkan satu nama regu per baris. Contoh:&#10;Regu A&#10;Regu B&#10;Regu C" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-4 mt-8">
+                    <button type="button" id="resetBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                        Reset
+                    </button>
+                    <button type="button" id="generateBtn" class="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Buat Jadwal
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <section id="output-section" class="hidden bg-white p-6 rounded-lg shadow-lg">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 border-b pb-3">
+                <h2 class="text-2xl font-semibold">2. Hasil Jadwal</h2>
+                <div id="output-actions" class="flex gap-2 mt-3 sm:mt-0 no-print">
+                    <button id="printBtn" class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Print</button>
+                    <button id="exportBtn" class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700">Export PNG</button>
+                </div>
+            </div>
+            
+            <div id="schedule-container" class="bg-white">
+                <div class="overflow-y-auto overflow-x-auto max-h-[60vh] border rounded-lg">
+                    <table id="schedule-table" class="w-full text-sm text-left text-gray-600">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-200">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 whitespace-nowrap">Tanggal</th>
+                                <th scope="col" class="px-6 py-3 whitespace-nowrap">Kelompok Jaga</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schedule-body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- DOM Element Selection ---
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const holidaysInput = document.getElementById('holidays');
+        const teamsInput = document.getElementById('teams');
+        const generateBtn = document.getElementById('generateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const printBtn = document.getElementById('printBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const outputSection = document.getElementById('output-section');
+        const scheduleBody = document.getElementById('schedule-body');
+        const scheduleContainer = document.getElementById('schedule-container');
+
+        // --- Initialize Flatpickr Date Pickers ---
+        const commonConfig = {
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "j F Y",
+            locale: "id", // Use Indonesian locale
+        };
+
+        const fp_start = flatpickr(startDateInput, { ...commonConfig, altFormat: "l, j F Y" });
+        const fp_end = flatpickr(endDateInput, { ...commonConfig, altFormat: "l, j F Y" });
+        const fp_holidays = flatpickr(holidaysInput, {
+            ...commonConfig,
+            mode: "multiple",
+            conjunction: ", ",
+        });
+
+        // --- Event Listeners ---
+        generateBtn.addEventListener('click', generateSchedule);
+        resetBtn.addEventListener('click', resetForm);
+        printBtn.addEventListener('click', () => window.print());
+        exportBtn.addEventListener('click', exportToPng);
+
+        // --- Core Functions ---
+
+        /**
+         * Generates the schedule based on user input.
+         */
+        function generateSchedule() {
+            // 1. Get and Validate Inputs
+            const startDate = fp_start.selectedDates[0];
+            const endDate = fp_end.selectedDates[0];
+            const teams = teamsInput.value.split('\n').map(t => t.trim()).filter(t => t);
+            const holidays = new Set(fp_holidays.selectedDates.map(d => d.toISOString().slice(0, 10)));
+            
+            if (!startDate || !endDate || teams.length === 0) {
+                alert("Harap isi Tanggal Mulai, Tanggal Selesai, dan setidaknya satu nama regu.");
+                return;
+            }
+            if (startDate > endDate) {
+                alert("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.");
+                return;
+            }
+
+            // 2. Clear previous results and prepare for new data
+            scheduleBody.innerHTML = '';
+            let teamIndex = 0;
+            let currentDate = new Date(startDate);
+            
+            // 3. Loop through dates and generate table rows
+            while (currentDate <= endDate) {
+                const dateStringForCheck = currentDate.toISOString().slice(0, 10);
+                const isHoliday = holidays.has(dateStringForCheck);
+
+                const row = document.createElement('tr');
+                row.className = 'bg-white border-b hover:bg-gray-50';
+
+                const dateCell = document.createElement('td');
+                dateCell.className = 'px-6 py-4 font-medium text-gray-900 whitespace-nowrap';
+                dateCell.textContent = formatDate(currentDate);
+
+                const teamCell = document.createElement('td');
+                teamCell.className = 'px-6 py-4';
+
+                if (isHoliday) {
+                    teamCell.textContent = 'Libur';
+                    row.classList.add('bg-gray-200', 'print-bg-gray-200'); // Special highlight for holidays
+                    teamCell.classList.add('font-semibold', 'text-gray-500');
+                } else {
+                    teamCell.textContent = teams[teamIndex];
+                    // Move to the next team in a circular fashion
+                    teamIndex = (teamIndex + 1) % teams.length;
+                }
+
+                row.appendChild(dateCell);
+                row.appendChild(teamCell);
+                scheduleBody.appendChild(row);
+
+                // Move to the next day
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            // 4. Show the output section
+            outputSection.classList.remove('hidden');
+            outputSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        /**
+         * Resets the form and hides the output.
+         */
+        function resetForm() {
+            fp_start.clear();
+            fp_end.clear();
+            fp_holidays.clear();
+            teamsInput.value = '';
+            scheduleBody.innerHTML = '';
+            outputSection.classList.add('hidden');
+        }
+
+        /**
+         * Exports the schedule table as a PNG image.
+         */
+        function exportToPng() {
+            // Temporarily remove max-height for full capture
+            const originalMaxHeight = scheduleContainer.firstElementChild.style.maxHeight;
+            scheduleContainer.firstElementChild.style.maxHeight = 'none';
+
+            html2canvas(scheduleContainer, {
+                scale: 2, // Increase scale for better resolution
+                useCORS: true,
+                backgroundColor: '#ffffff'
+            }).then(canvas => {
+                // Restore max-height
+                scheduleContainer.firstElementChild.style.maxHeight = originalMaxHeight;
+
+                const link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = `jadwal-piket-${new Date().toISOString().slice(0,10)}.png`;
+                link.click();
+            }).catch(err => {
+                console.error("Gagal mengekspor gambar:", err);
+                alert("Terjadi kesalahan saat mengekspor gambar. Coba lagi.");
+                // Restore max-height even if it fails
+                scheduleContainer.firstElementChild.style.maxHeight = originalMaxHeight;
+            });
+        }
+        
+        /**
+         * Formats a Date object into "Hari, Tanggal Bulan Tahun" in Indonesian.
+         * @param {Date} date - The date to format.
+         * @returns {string} The formatted date string.
+         */
+        function formatDate(date) {
+            return date.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+    });
+    </script>
+</body>
+</html>
