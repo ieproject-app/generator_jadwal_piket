@@ -94,6 +94,20 @@ let lastGroups = [];
 let lastMonths = [];
 let lastConfig = {};
 
+// Set tanggal selesai default 1 bulan dari tanggal mulai
+document.getElementById('startDate').addEventListener('change', function() {
+  const start = this.value;
+  if (!start) return;
+  const startDate = new Date(start);
+  const endDate = new Date(startDate);
+  endDate.setMonth(startDate.getMonth() + 1);
+  // Pastikan tanggal selesai tidak mundur jika bulan tidak penuh (misal 31 Jan + 1 bulan = 3 Mar)
+  if (endDate.getDate() !== startDate.getDate()) {
+    endDate.setDate(0); // hari terakhir bulan berikutnya
+  }
+  document.getElementById('endDate').value = endDate.toISOString().slice(0,10);
+});
+
 function formatTanggal(iso) {
   const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
   const bulan = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -200,7 +214,7 @@ document.getElementById('configForm').onsubmit = function(e) {
   renderScheduleTable(jadwal, groups);
 };
 
-/* ==== Jadwal Generator ==== */
+/* ==== Jadwal Generator with Fair Shuffle ==== */
 function shuffleArray(arr) {
   let a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -210,6 +224,7 @@ function shuffleArray(arr) {
   return a;
 }
 function generateSchedule(start, end, holidaysList, groupList, orderType) {
+  // Generate days
   let days = [];
   let cur = new Date(start);
   const endDate = new Date(end);
@@ -220,46 +235,72 @@ function generateSchedule(start, end, holidaysList, groupList, orderType) {
     cur.setDate(cur.getDate()+1);
   }
   let schedule = [];
-  let pool = groupList.slice();
-  let idx = 0, last1=null, last2=null;
-  for (let d of days) {
-    if (d.isHoliday) {
-      schedule.push({date: d.date, group1: 'Libur', group2: 'Libur', isHoliday:true});
-      continue;
-    }
-    let g1, g2;
-    if (orderType === 'manual') {
-      g1 = pool[idx % pool.length];
-      g2 = pool[(idx+1)%pool.length];
+  if (orderType === 'manual') {
+    // Urutan tetap
+    let pool = groupList.slice();
+    let idx = 0, last1=null, last2=null;
+    for (let d of days) {
+      if (d.isHoliday) {
+        schedule.push({date: d.date, group1: 'Libur', group2: 'Libur', isHoliday:true});
+        continue;
+      }
+      let g1 = pool[idx % pool.length];
+      let g2 = pool[(idx+1)%pool.length];
+      // Hindari duplikat berurutan
       if (g1===last1 || g2===last2 || g1===last2 || g2===last1) {
         idx++;
         g1 = pool[idx % pool.length];
         g2 = pool[(idx+1)%pool.length];
       }
       idx++;
-    } else {
-      if (idx===0 || idx>=pool.length-1) {
-        pool = shuffleArray(pool);
-        if (last1 && (pool[0]===last1 || pool[1]===last2)) {
-          pool = shuffleArray(pool);
-        }
-        idx = 0;
-      }
-      g1 = pool[idx];
-      g2 = pool[idx+1];
-      if (g1===last1 || g2===last2 || g1===last2 || g2===last1) {
-        idx++;
-        if (idx>=pool.length-1) {
-          pool = shuffleArray(pool);
-          idx = 0;
-        }
-        g1 = pool[idx];
-        g2 = pool[idx+1];
-      }
-      idx++;
+      last1=g1; last2=g2;
+      schedule.push({date: d.date, group1: g1, group2: g2, isHoliday:false});
     }
-    last1=g1; last2=g2;
-    schedule.push({date: d.date, group1: g1, group2: g2, isHoliday:false});
+  } else { // Fair shuffle
+    // Kumpulkan tanggal kerja (bukan libur)
+    let workingDaysIdx = [];
+    days.forEach((d, i) => { if (!d.isHoliday) workingDaysIdx.push(i); });
+    let total = workingDaysIdx.length;
+    let perCycle = groupList.length; // Satu siklus = semua grup dapat jatah
+    let pool = [];
+    let poolIdx = 0;
+    let last1=null, last2=null;
+    let cycle = 0;
+    for (let i=0; i<days.length; i++) {
+      if (days[i].isHoliday) {
+        schedule.push({date: days[i].date, group1: 'Libur', group2: 'Libur', isHoliday:true});
+        continue;
+      }
+      // Setiap habis satu siklus, acak ulang pool
+      if (pool.length < 2) {
+        pool = shuffleArray(groupList);
+        poolIdx = 0;
+        // Pastikan tidak consecutive dengan hari sebelumnya
+        if (last1 && (pool[0]===last1 || pool[1]===last2)) {
+          pool = shuffleArray(groupList);
+        }
+      }
+      // Ambil 2 regu dari pool
+      let g1 = pool[poolIdx % pool.length];
+      let g2 = pool[(poolIdx+1) % pool.length];
+      // Hindari consecutive duplicate antar hari
+      if (g1===last1 || g2===last2 || g1===last2 || g2===last1 || g1===g2) {
+        poolIdx++;
+        if (poolIdx+1 >= pool.length) {
+          pool = shuffleArray(groupList);
+          poolIdx = 0;
+        }
+        g1 = pool[poolIdx % pool.length];
+        g2 = pool[(poolIdx+1) % pool.length];
+      }
+      schedule.push({date: days[i].date, group1: g1, group2: g2, isHoliday:false});
+      last1 = g1; last2 = g2;
+      pool.splice(poolIdx,1); // remove g1
+      // Remove g2, adjust index if after g1
+      let g2idx = pool.indexOf(g2);
+      if (g2idx !== -1) pool.splice(g2idx,1);
+      poolIdx = 0;
+    }
   }
   return schedule;
 }
@@ -283,7 +324,7 @@ document.getElementById('filterLibur').onchange = function() {
   renderScheduleTable(lastJadwal, lastGroups);
 }
 
-/* ==== Render Table Per Bulan ==== */
+/* ==== Render Table Per Bulan, Per 10 Baris Per Kolom ==== */
 function renderScheduleTable(jadwal, allGroups) {
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
@@ -305,7 +346,7 @@ function renderScheduleTable(jadwal, allGroups) {
     const rows = byMonth[ym];
     const monthTitle = formatBulanTahun(rows[0].date);
 
-    const COL_HEIGHT = 15;
+    const COL_HEIGHT = 10;
     let padded = padRows(rows, COL_HEIGHT);
     let colCnt = padded.length / COL_HEIGHT;
     let cols = [];
@@ -412,7 +453,7 @@ document.getElementById('downloadCSV').onclick = function() {
 /* ==== EXPORT/IMPORT GENERATOR ==== */
 document.getElementById('exportGenerator').onclick = function() {
   if (!lastConfig) {
-    // Export config even if belum generate, so user can save state input
+    // Export config even if belum generate
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     let groups = document.getElementById('groupList').value.split('\n').map(g=>g.trim()).filter(Boolean);
@@ -479,5 +520,7 @@ document.getElementById('importGenerator').onchange = function(e) {
   e.target.value = "";
 };
 </script>
+<!-- ExcelJS CDN for Excel Export -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 </body>
 </html>
