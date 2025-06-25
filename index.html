@@ -6,6 +6,8 @@
   <title>Penjadwalan Regu Jaga</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS for Excel export (recommended for stability and size) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <style>
     .sticky-header { position: sticky; top: 0; background: #f8fafc; z-index: 2;}
     .sticky-month { position: sticky; top: 0; z-index: 3; background: #e0e7ef;}
@@ -202,7 +204,7 @@ document.getElementById('configForm').onsubmit = function(e) {
   document.getElementById('filterBar').style.display = '';
 };
 
-/* ==== Jadwal Generator ==== */
+/* ==== Jadwal Generator (Optimized) ==== */
 function shuffleArray(arr) {
   let a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -212,56 +214,62 @@ function shuffleArray(arr) {
   return a;
 }
 function generateSchedule(start, end, holidaysList, groupList, orderType) {
-  let days = [];
-  let cur = new Date(start);
-  const endDate = new Date(end);
-  holidaysList = holidaysList.slice();
-  while (cur <= endDate) {
+  // Generate array of dates
+  const days = [];
+  const holidaySet = new Set(holidaysList); // more efficient for lookup
+  for (let cur = new Date(start); cur <= new Date(end); cur.setDate(cur.getDate() + 1)) {
     const iso = cur.toISOString().slice(0,10);
-    days.push({date: iso, isHoliday: holidaysList.includes(iso)});
-    cur.setDate(cur.getDate()+1);
+    days.push({
+      date: iso,
+      isHoliday: holidaySet.has(iso)
+    });
   }
-  let schedule = [];
-  let pool = groupList.slice();
-  let idx = 0, last1=null, last2=null;
-  for (let d of days) {
-    if (d.isHoliday) {
-      schedule.push({date: d.date, group1: 'Libur', group2: 'Libur', isHoliday:true});
-      continue;
-    }
-    let g1, g2;
+  // Generate schedule
+  const schedule = [];
+  let pool = [...groupList];
+  let idx = 0;
+  let [last1, last2] = [null, null];
+
+  function getNextGroups() {
     if (orderType === 'manual') {
-      g1 = pool[idx % pool.length];
-      g2 = pool[(idx+1)%pool.length];
-      if (g1===last1 || g2===last2 || g1===last2 || g2===last1) {
-        idx++;
-        g1 = pool[idx % pool.length];
-        g2 = pool[(idx+1)%pool.length];
-      }
+      const g1 = pool[idx % pool.length];
+      const g2 = pool[(idx + 1) % pool.length];
       idx++;
+      return [g1, g2];
     } else {
-      if (idx===0 || idx>=pool.length-1) {
-        pool = shuffleArray(pool);
-        if (last1 && (pool[0]===last1 || pool[1]===last2)) {
-          pool = shuffleArray(pool);
-        }
+      if (idx >= pool.length - 1) {
+        pool = shuffleArray([...pool]);
         idx = 0;
       }
-      g1 = pool[idx];
-      g2 = pool[idx+1];
-      if (g1===last1 || g2===last2 || g1===last2 || g2===last1) {
-        idx++;
-        if (idx>=pool.length-1) {
-          pool = shuffleArray(pool);
-          idx = 0;
-        }
-        g1 = pool[idx];
-        g2 = pool[idx+1];
-      }
+      const [g1, g2] = [pool[idx], pool[idx + 1]];
       idx++;
+      return [g1, g2];
     }
-    last1=g1; last2=g2;
-    schedule.push({date: d.date, group1: g1, group2: g2, isHoliday:false});
+  }
+
+  for (const day of days) {
+    if (day.isHoliday) {
+      schedule.push({
+        date: day.date,
+        group1: 'Libur',
+        group2: 'Libur',
+        isHoliday: true
+      });
+      continue;
+    }
+    let [g1, g2] = getNextGroups();
+    // Hindari pengulangan grup berturut-turut
+    let safe = 10; // maximal loop
+    while ((g1 === last1 || g2 === last2 || g1 === last2 || g2 === last1) && safe-- > 0) {
+      [g1, g2] = getNextGroups();
+    }
+    [last1, last2] = [g1, g2];
+    schedule.push({
+      date: day.date,
+      group1: g1,
+      group2: g2,
+      isHoliday: false
+    });
   }
   return schedule;
 }
@@ -285,7 +293,7 @@ document.getElementById('filterLibur').onchange = function() {
   renderScheduleTable(lastJadwal, lastGroups);
 }
 
-/* ==== Render Table Per Bulan ==== */
+/* ==== Render Table Per Bulan (Optimized) ==== */
 function renderScheduleTable(jadwal, allGroups) {
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
@@ -355,34 +363,26 @@ function renderScheduleTable(jadwal, allGroups) {
 }
 
 /* ==== EXPORT XLSX/CSV ==== */
-
-// Export ke xlsx dengan library alternatif (exceljs)
 async function exportToExcel() {
-  // Lazy load exceljs if not loaded
-  if (!window.ExcelJS) {
-    await new Promise(resolve => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js';
-      script.onload = resolve;
-      document.head.appendChild(script);
-    });
+  try {
+    const rows = getScheduleDataForExport();
+    if (!rows.length) {
+      alert('Tidak ada data untuk diunduh!');
+      return;
+    }
+    // Using SheetJS (XLSX)
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Bulan', 'Tanggal', 'Grup 1', 'Grup 2'],
+      ...rows
+    ]);
+    ws['!cols'] = [{ wch: 20 }, { wch: 24 }, { wch: 18 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(wb, ws, 'Jadwal');
+    XLSX.writeFile(wb, 'jadwal_regu.xlsx');
+  } catch (error) {
+    console.error('Error exporting to Excel:', error);
+    alert('Terjadi kesalahan saat mengekspor ke Excel. Silakan coba lagi.');
   }
-  const rows = getScheduleDataForExport();
-  if (!rows.length) return alert('Tidak ada data untuk diunduh!');
-  const workbook = new window.ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Jadwal');
-  worksheet.addRow(['Bulan','Tanggal','Grup 1','Grup 2']);
-  rows.forEach(r=>worksheet.addRow(r));
-  worksheet.columns.forEach(col => { col.width = 25; });
-  const buf = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'jadwal_regu.xlsx';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 function getScheduleDataForExport() {
