@@ -6,8 +6,6 @@
   <title>Penjadwalan Regu Jaga</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- SheetJS CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.19.3/dist/xlsx.full.min.js"></script>
   <style>
     .sticky-header { position: sticky; top: 0; background: #f8fafc; z-index: 2;}
     .sticky-month { position: sticky; top: 0; z-index: 3; background: #e0e7ef;}
@@ -17,14 +15,12 @@
     td, th { border: 1px solid #e5e7eb; }
     .holiday-row { background: #fee2e2 !important; color: #dc2626 !important;}
     .empty-cell { background: #fff; border: none;}
-    .panel-grid { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-    .panel-month { min-width:340px; background:white; border-radius:8px; box-shadow:0 1px 4px #0001; padding:0.5rem 0.5rem 1.4rem 0.5rem; flex:1 1 340px;}
+    .panel-month { min-width:340px; background:white; border-radius:8px; box-shadow:0 1px 4px #0001; padding:0.5rem 0.5rem 1.4rem 0.5rem; margin-bottom:2rem;}
     .panel-month .sticky-month { font-size: 1rem; font-weight: 600; margin-bottom: 10px; text-align: center;}
     .filter-bar select, .filter-bar label { font-size: 13px; }
     .filter-bar input[type="checkbox"] { width: 14px; height: 14px; }
     .filter-bar { gap: 0.7rem; }
     @media (max-width:900px) {
-      .panel-grid { flex-direction: column; gap: 1.5rem;}
       .panel-month { min-width: 0;}
     }
   </style>
@@ -81,8 +77,11 @@
         <select id="filterGrup" class="border px-1 rounded"></select>
       </label>
       <label class="flex gap-1 items-center"><input type="checkbox" id="filterLibur"/> Hari Libur Saja</label>
-      <button id="downloadXLSX" class="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 ml-2">Download XLSX</button>
+      <button id="downloadXLSX" class="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 ml-2">Download Excel</button>
       <button id="downloadCSV" class="px-3 py-1 text-xs bg-sky-600 text-white rounded hover:bg-sky-700">Download CSV</button>
+      <button id="exportGenerator" class="px-3 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 ml-2">Export Generator</button>
+      <input type="file" id="importGenerator" accept=".json" class="ml-2 hidden"/>
+      <button type="button" id="importGenBtn" class="px-3 py-1 text-xs bg-yellow-100 text-yellow-900 rounded hover:bg-yellow-200 border border-yellow-400 ml-1">Import Generator</button>
     </div>
 
     <div id="scheduleOut" class="overflow-x-auto"></div>
@@ -93,6 +92,7 @@ let holidays = [];
 let lastJadwal = [];
 let lastGroups = [];
 let lastMonths = [];
+let lastConfig = {};
 
 function formatTanggal(iso) {
   const hari = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
@@ -171,6 +171,7 @@ document.getElementById('resetBtn').onclick = function() {
   lastJadwal = [];
   lastGroups = [];
   lastMonths = [];
+  lastConfig = {};
 };
 
 /* ==== Generate ==== */
@@ -193,6 +194,9 @@ document.getElementById('configForm').onsubmit = function(e) {
   lastJadwal = jadwal;
   lastGroups = groups;
   lastMonths = Array.from(new Set(jadwal.map(j=>j.date.slice(0,7))));
+  lastConfig = {
+    startDate, endDate, holidays:[...holidays], groups:[...groups], orderType
+  };
   renderFilterBar(jadwal, groups);
   renderScheduleTable(jadwal, groups);
   document.getElementById('filterBar').style.display = '';
@@ -281,7 +285,7 @@ document.getElementById('filterLibur').onchange = function() {
   renderScheduleTable(lastJadwal, lastGroups);
 }
 
-/* ==== Render Table Panel Grid ==== */
+/* ==== Render Table Per Bulan ==== */
 function renderScheduleTable(jadwal, allGroups) {
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
@@ -294,22 +298,19 @@ function renderScheduleTable(jadwal, allGroups) {
   });
 
   let byMonth = groupByMonth(filtered);
-  // Tampilkan hanya dua bulan (jika lebih dari dua bulan)
   let monthKeys = Object.keys(byMonth);
-  if (monthKeys.length > 2) {
-    // default: dua bulan pertama
-    let chosen = monthKeys.slice(0,2);
-    let limited = {};
-    chosen.forEach(k=>limited[k]=byMonth[k]);
-    byMonth = limited;
-    monthKeys = chosen;
+  // Jika filter grup, tampilkan seluruh bulan yang ada
+  if (grupVal) {
+    // urutkan bulan
+    monthKeys = monthKeys.sort();
   }
-
-  let html = '<div class="panel-grid">';
+  // Panel per bulan (ke bawah)
+  let html = '';
   for (let ym of monthKeys) {
     const rows = byMonth[ym];
     const monthTitle = formatBulanTahun(rows[0].date);
-    // Split jadi kolom, max 15 per kolom, pad biar simetris
+
+    // Split ke kolom, max 15 per kolom
     const COL_HEIGHT = 15;
     let padded = padRows(rows, COL_HEIGHT);
     let colCnt = padded.length / COL_HEIGHT;
@@ -317,13 +318,14 @@ function renderScheduleTable(jadwal, allGroups) {
     for (let c=0; c<colCnt; c++) {
       cols.push(padded.slice(c*COL_HEIGHT, (c+1)*COL_HEIGHT));
     }
+
     html += `<div class="panel-month">
       <div class="sticky-month">${monthTitle}</div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-xs"><tbody><tr>`;
-    // Render setiap kolom dengan header ulang!
+      <div class="overflow-x-auto"><table class="w-full text-xs"><tbody><tr>`;
+
+    // render header dan body per kolom, sisa jadwal tetap di atas
     for (let cc=0; cc<cols.length; cc++) {
-      html += `<td colspan="3" style="padding:0;background:#f8fafc">
+      html += `<td valign="top" colspan="3" style="padding:0;background:#f8fafc">
         <table class="w-full text-xs" style="margin:0">
           <thead>
             <tr>
@@ -349,13 +351,41 @@ function renderScheduleTable(jadwal, allGroups) {
     }
     html += `</tr></tbody></table></div></div>`;
   }
-  html += '</div>';
   document.getElementById('scheduleOut').innerHTML = html;
 }
 
 /* ==== EXPORT XLSX/CSV ==== */
+
+// Export ke xlsx dengan library alternatif (exceljs)
+async function exportToExcel() {
+  // Lazy load exceljs if not loaded
+  if (!window.ExcelJS) {
+    await new Promise(resolve => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js';
+      script.onload = resolve;
+      document.head.appendChild(script);
+    });
+  }
+  const rows = getScheduleDataForExport();
+  if (!rows.length) return alert('Tidak ada data untuk diunduh!');
+  const workbook = new window.ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Jadwal');
+  worksheet.addRow(['Bulan','Tanggal','Grup 1','Grup 2']);
+  rows.forEach(r=>worksheet.addRow(r));
+  worksheet.columns.forEach(col => { col.width = 25; });
+  const buf = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'jadwal_regu.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function getScheduleDataForExport() {
-  // Ambil jadwal hasil filter
   const bulanVal = document.getElementById('filterBulan').value;
   const grupVal = document.getElementById('filterGrup').value;
   const liburOnly = document.getElementById('filterLibur').checked;
@@ -373,12 +403,7 @@ function getScheduleDataForExport() {
   ]);
 }
 document.getElementById('downloadXLSX').onclick = function() {
-  const rows = getScheduleDataForExport();
-  if (!rows.length) return alert('Tidak ada data untuk diunduh!');
-  const ws = XLSX.utils.aoa_to_sheet([['Bulan','Tanggal','Grup 1','Grup 2'], ...rows]);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Jadwal');
-  XLSX.writeFile(wb, 'jadwal_regu.xlsx');
+  exportToExcel();
 };
 document.getElementById('downloadCSV').onclick = function() {
   const rows = getScheduleDataForExport();
@@ -392,6 +417,58 @@ document.getElementById('downloadCSV').onclick = function() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+};
+
+/* ==== EXPORT/IMPORT GENERATOR ==== */
+document.getElementById('exportGenerator').onclick = function() {
+  if (!lastConfig || !lastJadwal.length) return alert('Belum ada data jadwal!');
+  const data = {
+    config: lastConfig,
+    jadwal: lastJadwal
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'jadwal_regu_generator.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+document.getElementById('importGenBtn').onclick = function() {
+  document.getElementById('importGenerator').click();
+};
+document.getElementById('importGenerator').onchange = function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.config || !Array.isArray(data.jadwal)) throw new Error();
+      // Set config
+      document.getElementById('startDate').value = data.config.startDate || "";
+      document.getElementById('endDate').value = data.config.endDate || "";
+      document.getElementById('groupList').value = (data.config.groups || []).join('\n');
+      holidays = data.config.holidays || [];
+      renderHolidayPicker();
+      document.querySelector('input[name="orderType"][value="'+(data.config.orderType||'shuffle')+'"]').checked = true;
+      // Set jadwal
+      lastConfig = data.config;
+      lastJadwal = data.jadwal;
+      lastGroups = data.config.groups || [];
+      lastMonths = Array.from(new Set(lastJadwal.map(j=>j.date.slice(0,7))));
+      renderFilterBar(lastJadwal, lastGroups);
+      renderScheduleTable(lastJadwal, lastGroups);
+      document.getElementById('filterBar').style.display = '';
+      alert('Berhasil import Generator!');
+    } catch (e) {
+      alert('File generator tidak valid!');
+    }
+  };
+  reader.readAsText(file);
+  // Reset file input agar event dapat terpicu lagi jika file sama diupload
+  e.target.value = "";
 };
 </script>
 </body>
